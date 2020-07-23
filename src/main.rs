@@ -84,6 +84,20 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
     Ok(Response::builder(200).body("ok".to_string()).build())
 }
 
+async fn handle_get_all_employees(req: Request<SharedSyncState>) -> Result<String> {
+    let state = req.state().lock().unwrap();
+    let to_return: Vec<EmployeeModel> = state.employees.iter().map(|employee| EmployeeModel {
+        id: Some(employee.id),
+        employee_nr: employee.employee_nr.clone(),
+        first_name: employee.first_name.clone(),
+        second_name: employee.second_name.clone(),
+        username: employee.username.clone(),
+        office_email: employee.office_email.clone(),
+        mobile: employee.mobile.clone(),
+    }).collect();
+    Ok(serde_json::to_string(&to_return)?)
+}
+
 async fn handle_hello(mut req: Request<SharedSyncState>) -> Result<String> {
     let hello_req: HelloRequest = req.body_json().await?;
     let hello_resp = HelloResponse { greeting: format!("Hello, {}!", hello_req.name), };
@@ -96,6 +110,7 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     let mut app = tide::with_state(state);
     app.at("/api/hello").post(handle_hello);
     app.at("/api/employee").post(handle_add_employee);
+    app.at("/api/employee/all").get(handle_get_all_employees);
     app.listen("0.0.0.0:9090").await?;
     Ok(())
 }
