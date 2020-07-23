@@ -1,0 +1,14 @@
+version: '3'
+services:
+  postgresql:
+    ports:
+      - "5432:5432"
+    image: "postgres:12"
+    environment:
+      POSTGRES_USER: "simurgh_da"
+      POSTGRES_PASSWORD: "3ME8MCrbsSsxfneJ8Bg4KH7wu"
+      POSTGRES_DB: "simurgh_db"
+    volumes:
+      - "db-data:/var/lib/postgresql/data/"
+volumes:
+  db-data:
