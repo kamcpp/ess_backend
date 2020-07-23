@@ -11,7 +11,7 @@ use schema::employee;
 #[derive(Insertable)]
 #[table_name = "employee"]
 struct Employee {
-    id: u64,
+    id: i32,
     employee_nr: String,
     first_name: String,
     second_name: String,
@@ -21,7 +21,7 @@ struct Employee {
 }
 
 fn main() {
-    let database_url = "postgres://simurgh_da:3ME8MCrbsSsxfneJ8Bg4KH7wui1@localhost/simurgh_db";
+    let database_url = "postgres://simurgh_da:3ME8MCrbsSsxfneJ8Bg4KH7wu@localhost/simurgh_db";
     let conn = PgConnection::establish(&database_url).unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
 
     use schema::employee::dsl::*;
@@ -33,8 +33,10 @@ fn main() {
         second_name: "Anderson".to_string(),
         username: "steve_a".to_string(),
         office_email: "steve@labcrypto.org".to_string(),
-        mobile: "+132132145".to_string(),
+        mobile: "+1 (123) 456–7890".to_string(),
     };
 
-    insert_into(employee).values(&e).execute(conn);
+    insert_into(employee).values(&e).execute(&conn).expect("Insert failed!");
+
+    println!("Ok!");
 }
