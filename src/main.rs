@@ -1,63 +1,28 @@
-use std::sync::{Arc, Mutex};
+mod domain;
+mod models;
 
-use serde::{Serialize, Deserialize};
+use std::sync::{Arc, Mutex};
 
 use tide::{Request, Response, Result};
 
+use domain::Employee;
 
-#[derive(Deserialize)]
-struct HelloRequest {
-    name: String,
+use models::{HelloRequest, HelloResponse, EmployeeModel};
+
+struct ServiceState {
 }
 
-#[derive(Serialize)]
-struct HelloResponse {
-    greeting: String,
-}
-
-#[derive(Deserialize, Serialize)]
-struct EmployeeModel {
-    id: Option<u64>,
-    #[serde(rename = "employeeNr")]
-    employee_nr: String,
-    #[serde(rename = "firstName")]
-    first_name: String,
-    #[serde(rename = "secondName")]
-    second_name: String,
-    username: String,
-    #[serde(rename = "officeEmail")]
-    office_email: String,
-    mobile: String,
-}
-
-struct Employee {
-    id: u64,
-    employee_nr: String,
-    first_name: String,
-    second_name: String,
-    username: String,
-    office_email: String,
-    mobile: String,
-}
-
-struct State {
-    id_counter: u64,
-    employees: Vec<Employee>,
-}
-
-impl State {
+impl ServiceState {
     fn new() -> Self {
         Self {
-            id_counter: 0,
-            employees: Vec::new(),
         }
     }
 }
 
-type SharedSyncState = Arc<Mutex<State>>;
+type SharedSyncState = Arc<Mutex<ServiceState>>;
 
 async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Response> {
-    let employee_model: EmployeeModel = req.body_json().await?;
+    /* let employee_model: EmployeeModel = req.body_json().await?;
     let mut state = req.state().lock().unwrap();
     let mut found = false;
     state.employees.iter().for_each(|employee| {
@@ -80,13 +45,13 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
         username: employee_model.username,
         office_email: employee_model.office_email,
         mobile: employee_model.mobile,
-    });
+    });*/
     Ok(Response::builder(200).body("ok".to_string()).build())
 }
 
 async fn handle_get_all_employees(req: Request<SharedSyncState>) -> Result<String> {
     let state = req.state().lock().unwrap();
-    let to_return: Vec<EmployeeModel> = state.employees.iter().map(|employee| EmployeeModel {
+    let to_return: Vec<EmployeeModel> = Vec::new(); /*state.employees.iter().map(|employee| EmployeeModel {
         id: Some(employee.id),
         employee_nr: employee.employee_nr.clone(),
         first_name: employee.first_name.clone(),
@@ -94,7 +59,7 @@ async fn handle_get_all_employees(req: Request<SharedSyncState>) -> Result<Strin
         username: employee.username.clone(),
         office_email: employee.office_email.clone(),
         mobile: employee.mobile.clone(),
-    }).collect();
+    }).collect();*/
     Ok(serde_json::to_string(&to_return)?)
 }
 
@@ -106,7 +71,7 @@ async fn handle_hello(mut req: Request<SharedSyncState>) -> Result<String> {
 
 #[async_std::main]
 async fn main() -> std::result::Result<(), std::io::Error> {
-    let state = Arc::new(Mutex::new(State::new()));
+    let state = Arc::new(Mutex::new(ServiceState::new()));
     let mut app = tide::with_state(state);
     app.at("/api/hello").post(handle_hello);
     app.at("/api/employee").post(handle_add_employee);
