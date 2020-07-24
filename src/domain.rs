@@ -1,6 +1,9 @@
+use crate::schema::employee;
 
+#[derive(Insertable)]
+#[table_name ="employee"]
 pub struct Employee {
-    pub id: u64,
+    pub id: i32,
     pub employee_nr: String,
     pub first_name: String,
     pub second_name: String,
