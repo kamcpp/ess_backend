@@ -45,32 +45,31 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
             employee_model = parsed_employee_model;
         },
         Err(err) => {
+                    println!("{:?}", err);
             return Ok(Response::builder(500).body(format!("{}", err)).build());
         }
     }
 
     // This locks the 'state' and unlocks it when returning from function
-    let mut state = req.state().lock().unwrap();
+    let state = req.state().lock().unwrap();
 
     // Get a conneciton from the pool
     let conn = state.conn_pool.get().expect("Cannot create connection!");
 
     use schema::employee::dsl::*;
 
-    // Create a new employee object
-    let new_employee = Employee {
-         // The id column is serial so PostgreSQL should use an internal seuqnce to generate the value upon insertion.
-        id: None,
-        employee_nr: employee_model.employee_nr,
-        first_name: employee_model.first_name,
-        second_name: employee_model.second_name,
-        username: employee_model.username,
-        office_email: employee_model.office_email,
-        mobile: employee_model.mobile,
-    };
+    // Create the values for the new employee
+    let values = (
+        employee_nr.eq(employee_model.employee_nr),
+        first_name.eq(employee_model.first_name),
+        second_name.eq(employee_model.second_name),
+        username.eq(employee_model.username),
+        office_email.eq(employee_model.office_email),
+        mobile.eq(employee_model.mobile),
+    );
 
-    // Try to insert the employee object
-    match insert_into(employee).values(&new_employee).execute(conn.deref()) {
+    // Try to insert the new employee
+    match insert_into(employee).values(values).execute(conn.deref()) {
         Ok(_) => {
             return Ok(Response::builder(200).body("ok".to_string()).build());
         },
@@ -82,11 +81,13 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
                             return Ok(Response::builder(409).body(format!("{:?}", info)).build());
                         },
                         _ => {
+                    println!("{:?}", info);
                             return Ok(Response::builder(500).body(format!("{:?}", info)).build());
                         },
                     }
                 },
                 error => {
+                    println!("{:?}", error);
                     return Ok(Response::builder(500).body(format!("{}", error)).build());
                 },
             }
@@ -94,18 +95,42 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
     }
 }
 
-async fn handle_get_all_employees(req: Request<SharedSyncState>) -> Result<String> {
+async fn handle_get_all_employees(req: Request<SharedSyncState>) -> Result<Response> {
+
+    // This locks the 'state' and unlocks it when returning from function
     let state = req.state().lock().unwrap();
-    let to_return: Vec<EmployeeModel> = Vec::new(); /*state.employees.iter().map(|employee| EmployeeModel {
-        id: Some(employee.id),
-        employee_nr: employee.employee_nr.clone(),
-        first_name: employee.first_name.clone(),
-        second_name: employee.second_name.clone(),
-        username: employee.username.clone(),
-        office_email: employee.office_email.clone(),
-        mobile: employee.mobile.clone(),
-    }).collect();*/
-    Ok(serde_json::to_string(&to_return)?)
+
+    // Get a conneciton from the pool
+    let conn = state.conn_pool.get().expect("Cannot create connection!");
+
+    use schema::employee::dsl::*;
+
+    // Read all employees
+    match employee.load::<Employee>(conn.deref()) {
+        Ok(employees) => {
+            let to_return: Vec<EmployeeModel> = employees.iter().map(|e|
+                EmployeeModel {
+                    id: Some(e.id),
+                    employee_nr: e.employee_nr.clone(),
+                    first_name: e.first_name.clone(),
+                    second_name: e.second_name.clone(),
+                    username: e.username.clone(),
+                    office_email: e.office_email.clone(),
+                    mobile: e.mobile.clone(),
+            }).collect();
+            match serde_json::to_string(&to_return) {
+                Ok(body_str) => {
+                    return Ok(Response::builder(200).body(body_str).build());
+                },
+                Err(err) => {
+                    return Ok(Response::builder(500).body(format!("{}", err)).build());
+                },
+            };
+        },
+        Err(err) => {
+            return Ok(Response::builder(500).body(format!("{}", err)).build());
+        }
+    }
 }
 
 async fn handle_hello(mut req: Request<SharedSyncState>) -> Result<String> {

@@ -1,9 +1,9 @@
 use crate::schema::employee;
 
-#[derive(Insertable)]
+#[derive(Insertable, Queryable)]
 #[table_name ="employee"]
 pub struct Employee {
-    pub id: Option<i32>,
+    pub id: i32,
     pub employee_nr: String,
     pub first_name: String,
     pub second_name: String,

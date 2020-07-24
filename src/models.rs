@@ -12,7 +12,7 @@ pub struct HelloResponse {
 
 #[derive(Deserialize, Serialize)]
 pub struct EmployeeModel {
-    pub id: Option<u64>,
+    pub id: Option<i32>,
     #[serde(rename = "employeeNr")]
     pub employee_nr: String,
     #[serde(rename = "firstName")]
