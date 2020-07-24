@@ -3,8 +3,12 @@ extern crate diesel;
 
 mod schema;
 
-use diesel::prelude::*;
+use std::ops::Deref;
+
 use diesel::insert_into;
+use diesel::prelude::*;
+use diesel::pg::PgConnection;
+use r2d2_diesel::ConnectionManager;
 
 use schema::employee;
 
@@ -21,9 +25,16 @@ struct Employee {
 }
 
 fn main() {
+    println!("1");
     let database_url = "postgres://simurgh_da:3ME8MCrbsSsxfneJ8Bg4KH7wu@localhost/simurgh_db";
-    let conn = PgConnection::establish(&database_url).unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
+    println!("2");
+    let manager = ConnectionManager::<PgConnection>::new(database_url);
+    println!("3");
+    let pool = r2d2::Pool::builder().build(manager).expect("Failed to create PostgreSQL connection pool.");
+    println!("4");
+    let conn = pool.get().unwrap();
 
+    println!("5");
     use schema::employee::dsl::*;
 
     let e = Employee {
@@ -36,7 +47,7 @@ fn main() {
         mobile: "+1 (123) 456–7890".to_string(),
     };
 
-    insert_into(employee).values(&e).execute(&conn).expect("Insert failed!");
+    insert_into(employee).values(&e).execute(conn.deref()).expect("Insert failed!");
 
     println!("Ok!");
 }
