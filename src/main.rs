@@ -45,7 +45,6 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
             employee_model = parsed_employee_model;
         },
         Err(err) => {
-                    println!("{:?}", err);
             return Ok(Response::builder(500).body(format!("{}", err)).build());
         }
     }
@@ -81,13 +80,11 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
                             return Ok(Response::builder(409).body(format!("{:?}", info)).build());
                         },
                         _ => {
-                    println!("{:?}", info);
                             return Ok(Response::builder(500).body(format!("{:?}", info)).build());
                         },
                     }
                 },
                 error => {
-                    println!("{:?}", error);
                     return Ok(Response::builder(500).body(format!("{}", error)).build());
                 },
             }
@@ -133,6 +130,54 @@ async fn handle_get_all_employees(req: Request<SharedSyncState>) -> Result<Respo
     }
 }
 
+async fn handle_get_employee(req: Request<SharedSyncState>) -> Result<Response> {
+
+    let employee_id: i32 = match req.param("id") {
+        Ok(value) => value,
+        Err(err) => {
+            return Ok(Response::builder(500).body(format!("{}", err)).build());
+        }
+    };
+
+    // This locks the 'state' and unlocks it when returning from function
+    let state = req.state().lock().unwrap();
+
+    // Get a conneciton from the pool
+    let conn = state.conn_pool.get().expect("Cannot create connection!");
+
+    use schema::employee::dsl::*;
+
+    // Read all employees
+    match employee.filter(id.eq(employee_id)).load::<Employee>(conn.deref()) {
+        Ok(employees) => {
+            let to_return: Vec<EmployeeModel> = employees.iter().map(|e|
+                EmployeeModel {
+                    id: Some(e.id),
+                    employee_nr: e.employee_nr.clone(),
+                    first_name: e.first_name.clone(),
+                    second_name: e.second_name.clone(),
+                    username: e.username.clone(),
+                    office_email: e.office_email.clone(),
+                    mobile: e.mobile.clone(),
+            }).collect();
+            if to_return.len() == 0 {
+                return Ok(Response::builder(404).body("No employee found with this id!".to_string()).build());
+            }
+            match serde_json::to_string(&to_return[0]) {
+                Ok(body_str) => {
+                    return Ok(Response::builder(200).body(body_str).build());
+                },
+                Err(err) => {
+                    return Ok(Response::builder(500).body(format!("{}", err)).build());
+                },
+            };
+        },
+        Err(err) => {
+            return Ok(Response::builder(500).body(format!("{}", err)).build());
+        }
+    }
+}
+
 async fn handle_hello(mut req: Request<SharedSyncState>) -> Result<String> {
     let hello_req: HelloRequest = req.body_json().await?;
     let hello_resp = HelloResponse { greeting: format!("Hello, {}!", hello_req.name), };
@@ -146,6 +191,7 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     app.at("/api/hello").post(handle_hello);
     app.at("/api/employee").post(handle_add_employee);
     app.at("/api/employee/all").get(handle_get_all_employees);
+    app.at("/api/employee/:id").get(handle_get_employee);
     app.listen("0.0.0.0:9090").await?;
     Ok(())
 }
