@@ -38,12 +38,26 @@ type SharedSyncState = Arc<Mutex<ServiceState>>;
 
 async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Response> {
 
-    use schema::employee::dsl::*;
+    // Try to parse the request body containing the employee model
+    let employee_model: EmployeeModel;
+    match req.body_json().await {
+        Ok(parsed_employee_model) => {
+            employee_model = parsed_employee_model;
+        },
+        Err(err) => {
+            return Ok(Response::builder(500).body(format!("{}", err)).build());
+        }
+    }
 
-    let employee_model: EmployeeModel = req.body_json().await?;
+    // This locks the 'state' and unlocks it when returning from function
     let mut state = req.state().lock().unwrap();
+
+    // Get a conneciton from the pool
     let conn = state.conn_pool.get().expect("Cannot create connection!");
 
+    use schema::employee::dsl::*;
+
+    // Create a new employee object
     let new_employee = Employee {
          // The id column is serial so PostgreSQL should use an internal seuqnce to generate the value upon insertion.
         id: None,
@@ -54,6 +68,8 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
         office_email: employee_model.office_email,
         mobile: employee_model.mobile,
     };
+
+    // Try to insert the employee object
     match insert_into(employee).values(&new_employee).execute(conn.deref()) {
         Ok(_) => {
             return Ok(Response::builder(200).body("ok".to_string()).build());
