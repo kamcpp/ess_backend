@@ -44,10 +44,9 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
     let mut state = req.state().lock().unwrap();
     let conn = state.conn_pool.get().expect("Cannot create connection!");
 
-    // TODO: Check for duplicates
-
     let new_employee = Employee {
-        id: 0,
+         // The id column is serial so PostgreSQL should use an internal seuqnce to generate the value upon insertion.
+        id: None,
         employee_nr: employee_model.employee_nr,
         first_name: employee_model.first_name,
         second_name: employee_model.second_name,
@@ -60,7 +59,21 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
             return Ok(Response::builder(200).body("ok".to_string()).build());
         },
         Err(err) => {
-            return Ok(Response::builder(500).body(format!("{}", err)).build());
+            match err {
+                diesel::result::Error::DatabaseError(kind, info) => {
+                    match kind {
+                        diesel::result::DatabaseErrorKind::UniqueViolation => {
+                            return Ok(Response::builder(409).body(format!("{:?}", info)).build());
+                        },
+                        _ => {
+                            return Ok(Response::builder(500).body(format!("{:?}", info)).build());
+                        },
+                    }
+                },
+                error => {
+                    return Ok(Response::builder(500).body(format!("{}", error)).build());
+                },
+            }
         }
     }
 }
