@@ -1,0 +1,23 @@
+FROM ubuntu:18.04 as builder
+
+RUN apt update
+RUN apt install -y build-essential libssl-dev openssl pkgconf curl libpq-dev
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN cargo install diesel_cli --no-default-features --features postgres
+
+# --------------------------------
+
+FROM ubuntu:18.04
+
+RUN apt update
+RUN apt install -y build-essential libssl-dev openssl pkgconf curl libpq-dev
+
+COPY --from=builder /root/.cargo/bin/diesel /usr/bin/
+
+RUN mkdir /work
+WORKDIR /work
+ADD migrations ./migrations
+COPY init.sh .
