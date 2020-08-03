@@ -7,6 +7,7 @@ mod schema;
 
 use std::sync::{Arc, Mutex};
 use std::ops::Deref;
+use std::env;
 
 use tide::{Request, Response, Result};
 
@@ -26,7 +27,12 @@ struct ServiceState {
 
 impl ServiceState {
     fn new() -> Self {
-        let database_url = "postgres://simurgh_da:3ME8MCrbsSsxfneJ8Bg4KH7wu@localhost/simurgh_db";
+        let user = env::var("POSTGRES_USER").unwrap_or("simurgh_da".to_string());
+        let password = env::var("POSTGRES_PASSWORD").unwrap_or("not-set".to_string());
+        let addr = env::var("POSTGRES_ADDR").unwrap_or("localhost".to_string());
+        let db = env::var("POSTGRES_DB").unwrap_or("simurgh_db".to_string());
+
+        let database_url = format!("postgres://{}:{}@{}/{}", user, password, addr, db);
         let manager = ConnectionManager::<PgConnection>::new(database_url);
         Self {
             conn_pool: r2d2::Pool::builder().build(manager).expect("Failed to create PostgreSQL connection pool."),
@@ -188,10 +194,10 @@ async fn handle_hello(mut req: Request<SharedSyncState>) -> Result<String> {
 async fn main() -> std::result::Result<(), std::io::Error> {
     let state = Arc::new(Mutex::new(ServiceState::new()));
     let mut app = tide::with_state(state);
-    app.at("/api/hello").post(handle_hello);
-    app.at("/api/employee").post(handle_add_employee);
-    app.at("/api/employee/all").get(handle_get_all_employees);
-    app.at("/api/employee/:id").get(handle_get_employee);
-    app.listen("0.0.0.0:9090").await?;
+    app.at("/api/pam/hello").post(handle_hello);
+    app.at("/api/admin/employee").post(handle_add_employee);
+    app.at("/api/admin/employee/all").get(handle_get_all_employees);
+    app.at("/api/admin/employee/:id").get(handle_get_employee);
+    app.listen("0.0.0.0:9876").await?;
     Ok(())
 }
