@@ -1,7 +1,9 @@
 use crate::schema::employee;
+use crate::schema::id_verify_request;
+use crate::schema::notify_request;
 
-#[derive(Insertable, Queryable)]
-#[table_name ="employee"]
+#[derive(Identifiable, Queryable, Associations)]
+#[table_name="employee"]
 pub struct Employee {
     pub id: i32,
     pub employee_nr: String,
@@ -12,3 +14,27 @@ pub struct Employee {
     pub mobile: String,
 }
 
+#[derive(Identifiable, Queryable, Associations)]
+#[table_name="id_verify_request"]
+#[belongs_to(Employee)]
+pub struct IdentityVerifyRequest {
+    pub id: i32,
+    pub reference: String,
+    pub secret: String,
+    pub create_utc_dt: i64,
+    pub expire_utc_dt: i64,
+    pub employee_id: i32,
+}
+
+#[derive(Identifiable, Queryable, Associations)]
+#[table_name="notify_request"]
+#[belongs_to(Employee)]
+pub struct NotifyRequest {
+    pub id: i32,
+    pub title: String,
+    pub body: String,
+    pub create_utc_dt: i64,
+    pub expire_utc_dt: i64,
+    pub send_utc_dt: i64,
+    pub employee_id: i32,
+}
