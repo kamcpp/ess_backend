@@ -1,18 +1,19 @@
 REPO_NAME = kamcpp
-PROJECT_NAME = manning-simurgh-web-service
+PROJECT_NAME = manning-simurgh
 IMAGE_TAG = latest
-IMAGE_NAME = ${REPO_NAME}/${PROJECT_NAME}:${IMAGE_TAG}
+
+WEB_SERVICE_IMAGE_NAME = ${REPO_NAME}/${PROJECT_NAME}-web-service:${IMAGE_TAG}
 INIT_IMAGE_NAME = ${REPO_NAME}/${PROJECT_NAME}-init:${IMAGE_TAG}
 
-.PHONY: build-image
-build-image:
-	docker build -t ${IMAGE_NAME} .
+.PHONY: build-web-service-image
+build-web-service-image:
+	cd web-service && docker build -t ${WEB_SERVICE_IMAGE_NAME} .
 
 .PHONY: build-init-image
 build-init-image:
-	docker build -f Dockerfile.init -t ${INIT_IMAGE_NAME} .
+	cd init && docker build -t ${INIT_IMAGE_NAME} .
 
 .PHONY: push
 push:
-	docker push ${IMAGE_NAME}
+	docker push ${WEB_SERVICE_IMAGE_NAME}
 	docker push ${INIT_IMAGE_NAME}

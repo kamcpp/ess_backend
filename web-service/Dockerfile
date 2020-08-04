@@ -8,6 +8,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN mkdir -p /work/src
 WORKDIR /work
+
 COPY Cargo.toml .
 COPY Cargo.lock .
 RUN echo "fn main() {}" > src/main.rs
