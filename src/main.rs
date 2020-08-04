@@ -44,6 +44,7 @@ impl ServiceState {
 
         let database_url = format!("postgres://{}:{}@{}/{}", user, password, addr, db);
         let manager = ConnectionManager::<PgConnection>::new(database_url);
+        println!("Conneciton pool is created.");
         Self {
             conn_pool: r2d2::Pool::builder().build(manager).expect("Failed to create PostgreSQL connection pool."),
         }
@@ -90,6 +91,7 @@ async fn handle_new_id_verify_req(mut req: Request<SharedSyncState>) -> Result<R
     if now.signed_duration_since(client_now).num_minutes().abs() > 5 {
         return Ok(Response::builder(400).body("".to_string()).build());
     }
+    println!("{:?}", model);
     // This locks the 'state' and unlocks it when returning from function
     let state = req.state().lock().unwrap();
     // Get a conneciton from the pool
@@ -105,6 +107,9 @@ async fn handle_new_id_verify_req(mut req: Request<SharedSyncState>) -> Result<R
         let target_employee = &employees[0];
         let secret_value = gen_rand_string(8);
         let reference_value = gen_rand_string(16);
+        update(id_verify_request.filter(schema::id_verify_request::dsl::employee_id.eq(target_employee.id))).set((
+            active.eq(false),
+        )).execute(conn.deref())?;
         insert_into(id_verify_request).values((
             reference.eq(reference_value.clone()),
             secret.eq(secret_value.clone()),
@@ -365,8 +370,8 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     let state = Arc::new(Mutex::new(ServiceState::new()));
     let mut app = tide::with_state(state);
     app.at("/api/hello").post(handle_hello);
-    app.at("/api/id_verify_req/new").get(handle_new_id_verify_req);
-    app.at("/api/id_verify_req/check").get(handle_check_id_verify_req);
+    app.at("/api/id_verify_req/new").post(handle_new_id_verify_req);
+    app.at("/api/id_verify_req/check").post(handle_check_id_verify_req);
     app.at("/api/admin/employee").post(handle_add_employee);
     app.at("/api/admin/employee/:id").put(handle_update_employee);
     app.at("/api/admin/employee/:id").delete(handle_delete_employee);

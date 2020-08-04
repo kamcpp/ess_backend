@@ -1,16 +1,16 @@
 use serde::{Serialize, Deserialize};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct HelloRequest {
     pub name: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct HelloResponse {
     pub greeting: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct EmployeeModel {
     pub id: Option<i32>,
     #[serde(rename = "employeeNr")]
@@ -25,21 +25,21 @@ pub struct EmployeeModel {
     pub mobile: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct NewIdentityVerifyRequestModel {
     pub username: String,
     #[serde(rename = "clientUtcDateTime")]
     pub client_utc_dt: i64,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct NewIdentityVerifyResponseModel {
     pub reference: String,
     #[serde(rename = "serverUtcDateTime")]
     pub server_utc_dt: i64,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct CheckIdentityVerifyRequestModel {
     pub reference: String,
     #[serde(rename = "clientSecret")]
