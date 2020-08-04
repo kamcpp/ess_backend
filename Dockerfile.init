@@ -19,5 +19,5 @@ COPY --from=builder /root/.cargo/bin/diesel /usr/bin/
 
 RUN mkdir /work
 WORKDIR /work
-ADD migrations ./migrations
-COPY init.sh .
+ADD common/migrations ./migrations
+COPY init/init.sh .

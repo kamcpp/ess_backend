@@ -1,0 +1,37 @@
+FROM ubuntu:18.04 as builder
+
+RUN apt update
+RUN apt install -y build-essential libssl-dev openssl pkgconf curl libpq-dev
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN mkdir -p /work/common/src
+RUN mkdir -p /work/notifier/src
+RUN mkdir -p /work/web-service/src
+WORKDIR /work
+
+COPY common common
+
+COPY Cargo.toml .
+COPY Cargo.lock .
+COPY web-service/Cargo.toml web-service
+COPY web-service/Cargo.lock web-service
+COPY notifier/Cargo.toml notifier
+COPY notifier/Cargo.lock notifier
+RUN echo "fn main() {}" > web-service/src/main.rs
+RUN echo "fn main() {}" > notifier/src/main.rs
+RUN cargo build --release --bin web-service
+
+COPY . .
+RUN cargo build --release --bin web-service
+
+# -----------------------------------------
+FROM ubuntu:18.04
+
+RUN apt update
+RUN apt install -y libssl-dev ca-certificates libpq-dev
+
+COPY --from=builder /work/target/release/web-service /usr/bin/
+
+ENTRYPOINT [ "web-service" ]
