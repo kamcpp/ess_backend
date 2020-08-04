@@ -19,7 +19,8 @@ use tide::{Request, Response, Result};
 use domain::{Employee, IdentityVerifyRequest};
 
 use models::{HelloRequest, HelloResponse, EmployeeModel,
-    NewIdentityVerifyRequestModel, NewIdentityVerifyResponseModel, CheckIdentityVerifyRequestModel};
+             NewIdentityVerifyRequestModel, NewIdentityVerifyResponseModel,
+             CheckIdentityVerifyRequestModel};
 
 use diesel::{insert_into, update, delete};
 use diesel::result::{Error, DatabaseErrorKind};
@@ -27,6 +28,11 @@ use diesel::prelude::*;
 use diesel::pg::PgConnection;
 
 use r2d2_diesel::ConnectionManager;
+
+use tokio::time;
+use tokio::task;
+
+use futures::join;
 
 #[derive(Debug, Clone)]
 struct IdentityVerifyError;
@@ -365,18 +371,35 @@ async fn handle_hello(mut req: Request<SharedSyncState>) -> Result<String> {
     Ok(serde_json::to_string(&hello_resp)?)
 }
 
-#[async_std::main]
-async fn main() -> std::result::Result<(), std::io::Error> {
+// #[async_std::main]
+//async
+fn main() -> std::result::Result<(), std::io::Error> {
     let state = Arc::new(Mutex::new(ServiceState::new()));
-    let mut app = tide::with_state(state);
-    app.at("/api/hello").post(handle_hello);
-    app.at("/api/id_verify_req/new").post(handle_new_id_verify_req);
-    app.at("/api/id_verify_req/check").post(handle_check_id_verify_req);
-    app.at("/api/admin/employee").post(handle_add_employee);
-    app.at("/api/admin/employee/:id").put(handle_update_employee);
-    app.at("/api/admin/employee/:id").delete(handle_delete_employee);
-    app.at("/api/admin/employee/all").get(handle_get_all_employees);
-    app.at("/api/admin/employee/:id").get(handle_get_employee);
-    app.listen("0.0.0.0:9876").await?;
+    let mut rt = tokio::runtime::Runtime::new()?;
+    let local = task::LocalSet::new();
+    local.block_on(&mut rt, async move {
+        println!("Simurgh web service is running now ...");
+        let notifier_job = task::spawn_local(async move {
+            let mut interval = time::interval(std::time::Duration::from_secs(10));
+            loop {
+                interval.tick().await;
+            }
+        });
+        let rest_api_job = task::spawn_local(async move {
+            let mut app = tide::with_state(state);
+            app.at("/api/hello").post(handle_hello);
+            app.at("/api/id_verify_req/new").post(handle_new_id_verify_req);
+            app.at("/api/id_verify_req/check").post(handle_check_id_verify_req);
+            app.at("/api/admin/employee").post(handle_add_employee);
+            app.at("/api/admin/employee/:id").put(handle_update_employee);
+            app.at("/api/admin/employee/:id").delete(handle_delete_employee);
+            app.at("/api/admin/employee/all").get(handle_get_all_employees);
+            app.at("/api/admin/employee/:id").get(handle_get_employee);
+            app.listen("0.0.0.0:9876").await.expect("Could not start web server!");
+        });
+        let (r1, r2) = join!(notifier_job, rest_api_job);
+        r1.expect("Could not start notifier job!");
+        r2.expect("Could not start REST API job!");
+    });
     Ok(())
 }
