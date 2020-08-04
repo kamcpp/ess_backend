@@ -15,8 +15,10 @@ table! {
         id -> Int4,
         reference -> Varchar,
         secret -> Varchar,
+        active -> Bool,
         create_utc_dt -> Timestamp,
         expire_utc_dt -> Timestamp,
+        verify_utc_dt -> Nullable<Timestamp>,
         employee_id -> Int4,
     }
 }

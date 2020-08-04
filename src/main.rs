@@ -9,18 +9,27 @@ use std::sync::{Arc, Mutex};
 use std::ops::Deref;
 use std::env;
 
+use chrono::{Utc, Duration, NaiveDateTime, DateTime};
+
+use rand::Rng;
+use rand::distributions::Alphanumeric;
+
 use tide::{Request, Response, Result};
 
-use domain::Employee;
+use domain::{Employee, IdentityVerifyRequest};
 
-use models::{HelloRequest, HelloResponse, EmployeeModel};
+use models::{HelloRequest, HelloResponse, EmployeeModel,
+    NewIdentityVerifyRequestModel, NewIdentityVerifyResponseModel, CheckIdentityVerifyRequestModel};
 
 use diesel::{insert_into, update, delete};
-use diesel::result::Error;
+use diesel::result::{Error, DatabaseErrorKind};
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
 
 use r2d2_diesel::ConnectionManager;
+
+#[derive(Debug, Clone)]
+struct IdentityVerifyError;
 
 struct ServiceState {
     conn_pool: r2d2::Pool<ConnectionManager<PgConnection>>,
@@ -43,18 +52,137 @@ impl ServiceState {
 
 type SharedSyncState = Arc<Mutex<ServiceState>>;
 
+enum VariantError {
+    DieselError(Error),
+    IdentityVerifyError,
+}
+
+impl From<Error> for VariantError {
+    fn from(error: Error) -> Self {
+        VariantError::DieselError(error)
+    }
+}
+
+impl std::fmt::Display for VariantError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VariantError::DieselError(err) => write!(f, "{}", err),
+            VariantError::IdentityVerifyError => write!(f, "identity verification error"),
+        }
+    }
+}
+
+fn gen_rand_string(length: usize) -> String {
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(length)
+        .collect::<String>()
+}
+
 async fn handle_new_id_verify_req(mut req: Request<SharedSyncState>) -> Result<Response> {
-    // Try to parse the request body containing the id_verify_req model
-    let employee_model: EmployeeModel = match req.body_json().await {
-        Ok(parsed_employee_model) => parsed_employee_model,
+    // Try to parse the request body containing thet model
+    let model: NewIdentityVerifyRequestModel = match req.body_json().await {
+        Ok(parsed_model) => parsed_model,
         Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
     };
-
-    Ok(Response::builder(200).body("ok".to_string()).build())
+    let now = Utc::now();
+    let client_now = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(model.client_utc_dt, 0), Utc);
+    if now.signed_duration_since(client_now).num_minutes().abs() > 5 {
+        return Ok(Response::builder(400).body("".to_string()).build());
+    }
+    // This locks the 'state' and unlocks it when returning from function
+    let state = req.state().lock().unwrap();
+    // Get a conneciton from the pool
+    let conn = state.conn_pool.get().expect("Cannot create connection!");
+    use schema::employee::dsl::*;
+    use schema::id_verify_request::dsl::*;
+    use schema::notify_request::dsl::*;
+    match conn.transaction::<_, _, _>(|| {
+        let employees = employee.filter(username.eq(model.username)).load::<Employee>(conn.deref())?;
+        if employees.len() == 0 {
+            return Err(Error::NotFound);
+        }
+        let target_employee = &employees[0];
+        let secret_value = gen_rand_string(8);
+        let reference_value = gen_rand_string(16);
+        insert_into(id_verify_request).values((
+            reference.eq(reference_value.clone()),
+            secret.eq(secret_value.clone()),
+            active.eq(true),
+            schema::id_verify_request::dsl::create_utc_dt.eq(now.naive_utc()),
+            schema::id_verify_request::dsl::expire_utc_dt.eq((now + Duration::minutes(5)).naive_utc()),
+            schema::id_verify_request::dsl::employee_id.eq(target_employee.id),
+        )).execute(conn.deref())?;
+        insert_into(notify_request).values((
+            title.eq("Simurgh Identity Verification System"),
+            body.eq(format!("Your code: {}", secret_value)),
+            schema::notify_request::dsl::create_utc_dt.eq(now.naive_utc()),
+            schema::notify_request::dsl::expire_utc_dt.eq((now + Duration::minutes(15)).naive_utc()),
+            schema::notify_request::dsl::employee_id.eq(target_employee.id),
+        )).execute(conn.deref())?;
+        Ok(reference_value)
+    }) {
+        Ok(reference_value) => {
+            let response = NewIdentityVerifyResponseModel {
+                reference: reference_value,
+                server_utc_dt: now.timestamp(),
+            };
+            match serde_json::to_string(&response) {
+                Ok(body_str) => return Ok(Response::builder(200).body(body_str).build()),
+                Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
+            };
+        },
+        Err(err) => match err {
+            diesel::result::Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
+            error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
+        },
+    }
 }
 
 async fn handle_check_id_verify_req(mut req: Request<SharedSyncState>) -> Result<Response> {
-    Ok(Response::builder(200).body("ok".to_string()).build())
+
+    // Try to parse the request body containing thet model
+    let model: CheckIdentityVerifyRequestModel = match req.body_json().await {
+        Ok(parsed_model) => parsed_model,
+        Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
+    };
+    let now = Utc::now();
+    let client_now = DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(model.client_utc_dt, 0), Utc);
+    if now.signed_duration_since(client_now).num_minutes().abs() > 5 {
+        return Ok(Response::builder(400).body("".to_string()).build());
+    }
+    // This locks the 'state' and unlocks it when returning from function
+    let state = req.state().lock().unwrap();
+    // Get a conneciton from the pool
+    let conn = state.conn_pool.get().expect("Cannot create connection!");
+    use schema::id_verify_request::dsl::*;
+    match conn.transaction::<_, _, _>(|| {
+        let id_verify_requests =
+            id_verify_request.filter(
+                reference.eq(model.reference)
+                .and(active.eq(true))
+                .and(expire_utc_dt.gt(now.naive_utc())))
+            .load::<IdentityVerifyRequest>(conn.deref())?;
+        if id_verify_requests.len() == 0 {
+            return Err(VariantError::DieselError(Error::NotFound));
+        }
+        let target_request = &id_verify_requests[0];
+        if target_request.secret != model.client_secret {
+            return Err(VariantError::IdentityVerifyError);
+        }
+        update(target_request).set((
+            active.eq(false),
+            verify_utc_dt.eq(Utc::now().naive_utc()),
+        )).execute(conn.deref())?;
+        Ok(())
+    }) {
+        Ok(_) => return Ok(Response::builder(200).body("".to_string()).build()),
+        Err(err) => match err {
+            VariantError::IdentityVerifyError => return Ok(Response::builder(403).body("identity verification failed".to_string()).build()),
+            VariantError::DieselError(Error::NotFound) => return Ok(Response::builder(404).body("not found".to_string()).build()),
+            error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
+        },
+    }
 }
 
 async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Response> {
@@ -79,13 +207,12 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
     );
     // Try to insert the new employee in a transaction
     match conn.transaction::<_, Error, _>(|| {
-        insert_into(employee).values(values).execute(conn.deref());
-        Ok(())
+        insert_into(employee).values(values).execute(conn.deref())
     }) {
         Ok(_) => return Ok(Response::builder(200).body("ok".to_string()).build()),
         Err(err) => match err {
-            diesel::result::Error::DatabaseError(kind, info) => match kind {
-                diesel::result::DatabaseErrorKind::UniqueViolation => return Ok(Response::builder(409).body(format!("{:?}", info)).build()),
+            Error::DatabaseError(kind, info) => match kind {
+                DatabaseErrorKind::UniqueViolation => return Ok(Response::builder(409).body(format!("{:?}", info)).build()),
                 _ => return Ok(Response::builder(500).body(format!("{:?}", info)).build()),
             },
             error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
@@ -120,22 +247,21 @@ async fn handle_update_employee(mut req: Request<SharedSyncState>) -> Result<Res
     );
     // Try to update the employee
     match conn.transaction::<_, Error, _>(|| {
-        update(employee.filter(id.eq(employee_id))).set(values).execute(conn.deref());
-        Ok(())
+        update(employee.filter(id.eq(employee_id))).set(values).execute(conn.deref())
     }) {
         Ok(_) => return Ok(Response::builder(200).body("ok".to_string()).build()),
         Err(err) => match err {
-            diesel::result::Error::DatabaseError(kind, info) => match kind {
-                diesel::result::DatabaseErrorKind::UniqueViolation => return Ok(Response::builder(409).body(format!("{:?}", info)).build()),
+            Error::DatabaseError(kind, info) => match kind {
+                DatabaseErrorKind::UniqueViolation => return Ok(Response::builder(409).body(format!("{:?}", info)).build()),
                 _ => return Ok(Response::builder(500).body(format!("{:?}", info)).build()),
             },
-            diesel::result::Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
+            Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
             error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
         },
     }
 }
 
-async fn handle_delete_employee(mut req: Request<SharedSyncState>) -> Result<Response> {
+async fn handle_delete_employee(req: Request<SharedSyncState>) -> Result<Response> {
     // Read 'employee id' from the path
     let employee_id: i32 = match req.param("id") {
         Ok(value) => value,
@@ -148,12 +274,11 @@ async fn handle_delete_employee(mut req: Request<SharedSyncState>) -> Result<Res
     let conn = state.conn_pool.get().expect("Cannot create connection!");
     // Try to delete the employee
     match conn.transaction::<_, Error, _>(|| {
-        delete(employee.filter(id.eq(employee_id))).execute(conn.deref());
-        Ok(())
+        delete(employee.filter(id.eq(employee_id))).execute(conn.deref())
     }) {
         Ok(_) => return Ok(Response::builder(200).body("ok".to_string()).build()),
         Err(err) => match err {
-            diesel::result::Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
+            Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
             error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
         },
     }

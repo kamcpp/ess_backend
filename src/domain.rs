@@ -1,3 +1,5 @@
+use chrono::NaiveDateTime;
+
 use crate::schema::employee;
 use crate::schema::id_verify_request;
 use crate::schema::notify_request;
@@ -21,8 +23,10 @@ pub struct IdentityVerifyRequest {
     pub id: i32,
     pub reference: String,
     pub secret: String,
-    pub create_utc_dt: i64,
-    pub expire_utc_dt: i64,
+    pub active: bool,
+    pub create_utc_dt: NaiveDateTime,
+    pub expire_utc_dt: NaiveDateTime,
+    pub verified_utc_dt: Option<NaiveDateTime>,
     pub employee_id: i32,
 }
 
@@ -33,8 +37,8 @@ pub struct NotifyRequest {
     pub id: i32,
     pub title: String,
     pub body: String,
-    pub create_utc_dt: i64,
-    pub expire_utc_dt: i64,
-    pub send_utc_dt: i64,
+    pub create_utc_dt: NaiveDateTime,
+    pub expire_utc_dt: NaiveDateTime,
+    pub send_utc_dt: Option<NaiveDateTime>,
     pub employee_id: i32,
 }
