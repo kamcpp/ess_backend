@@ -24,6 +24,7 @@ RUN echo "fn main() {}" > notifier/src/main.rs
 RUN cargo build --release --bin notifier
 
 COPY . .
+RUN touch notifier/src/main.rs
 RUN cargo build --release --bin notifier
 
 # -----------------------------------------

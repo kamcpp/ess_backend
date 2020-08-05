@@ -24,6 +24,7 @@ RUN echo "fn main() {}" > notifier/src/main.rs
 RUN cargo build --release --bin web-service
 
 COPY . .
+RUN touch web-service/src/main.rs
 RUN cargo build --release --bin web-service
 
 # -----------------------------------------
