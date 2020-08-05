@@ -43,7 +43,7 @@ impl ServiceState {
         let manager = ConnectionManager::<PgConnection>::new(database_url);
         println!("Conneciton pool is created.");
         Self {
-            conn_pool: r2d2::Pool::builder().build(manager).expect("Failed to create PostgreSQL connection pool."),
+            conn_pool: r2d2::Pool::builder().build(manager).expect("Failed to create PostgreSQL connection pool!"),
         }
     }
 }
@@ -92,7 +92,7 @@ async fn handle_new_id_verify_req(mut req: Request<SharedSyncState>) -> Result<R
     // This locks the 'state' and unlocks it when returning from function
     let state = req.state().lock().unwrap();
     // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("Cannot create connection!");
+    let conn = state.conn_pool.get().expect("Cannot get a connection from pool!");
     use schema::employee::dsl::*;
     use schema::id_verify_request::dsl::*;
     use schema::notify_request::dsl::*;
@@ -156,7 +156,7 @@ async fn handle_check_id_verify_req(mut req: Request<SharedSyncState>) -> Result
     // This locks the 'state' and unlocks it when returning from function
     let state = req.state().lock().unwrap();
     // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("Cannot create connection!");
+    let conn = state.conn_pool.get().expect("Cannot get a connection from pool!");
     use schema::id_verify_request::dsl::*;
     match conn.transaction::<_, _, _>(|| {
         let id_verify_requests =
@@ -196,7 +196,7 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
     // This locks the 'state' and unlocks it when returning from function
     let state = req.state().lock().unwrap();
     // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("Cannot create connection!");
+    let conn = state.conn_pool.get().expect("Cannot get a connection from pool!");
     use schema::employee::dsl::*;
     // Create the values for the new employee
     let values = (
@@ -237,7 +237,7 @@ async fn handle_update_employee(mut req: Request<SharedSyncState>) -> Result<Res
     // This locks the 'state' and unlocks it when returning from function
     let state = req.state().lock().unwrap();
     // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("Cannot create connection!");
+    let conn = state.conn_pool.get().expect("Cannot get a connection from pool!");
     // Create the values to update the employee
     let values = (
         employee_nr.eq(employee_model.employee_nr),
@@ -273,7 +273,7 @@ async fn handle_delete_employee(req: Request<SharedSyncState>) -> Result<Respons
     // This locks the 'state' and unlocks it when returning from function
     let state = req.state().lock().unwrap();
     // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("Cannot create connection!");
+    let conn = state.conn_pool.get().expect("Cannot get a connection from pool!");
     // Try to delete the employee
     match conn.transaction::<_, Error, _>(|| {
         delete(employee.filter(id.eq(employee_id))).execute(conn.deref())
@@ -290,7 +290,7 @@ async fn handle_get_all_employees(req: Request<SharedSyncState>) -> Result<Respo
     // This locks the 'state' and unlocks it when returning from function
     let state = req.state().lock().unwrap();
     // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("Cannot create connection!");
+    let conn = state.conn_pool.get().expect("Cannot get a connection from pool!");
     use schema::employee::dsl::*;
     // Read all employees
     match conn.transaction::<_, Error, _>(|| {
@@ -327,7 +327,7 @@ async fn handle_get_employee(req: Request<SharedSyncState>) -> Result<Response> 
     // This locks the 'state' and unlocks it when returning from function
     let state = req.state().lock().unwrap();
     // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("Cannot create connection!");
+    let conn = state.conn_pool.get().expect("Cannot get a connection from pool!");
     use schema::employee::dsl::*;
     // Read just one employee
     match conn.transaction::<_, Error, _>(|| {
