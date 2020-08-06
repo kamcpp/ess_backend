@@ -14,15 +14,15 @@ pub struct HelloResponse {
 pub struct EmployeeModel {
     pub id: Option<i32>,
     #[serde(rename = "employeeNr")]
-    pub employee_nr: String,
+    pub employee_nr: Option<String>,
     #[serde(rename = "firstName")]
-    pub first_name: String,
+    pub first_name: Option<String>,
     #[serde(rename = "secondName")]
-    pub second_name: String,
-    pub username: String,
+    pub second_name: Option<String>,
+    pub username: Option<String>,
     #[serde(rename = "officeEmail")]
-    pub office_email: String,
-    pub mobile: String,
+    pub office_email: Option<String>,
+    pub mobile: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
