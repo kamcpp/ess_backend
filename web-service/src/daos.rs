@@ -19,6 +19,7 @@ impl<EntityType> InMemoryDao<EntityType> {
     }
 }
 
+#[derive(Debug)]
 pub struct InMemoryDaoError {
     code: i32,
     msg: String,

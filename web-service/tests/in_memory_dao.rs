@@ -72,14 +72,23 @@ mod tests {
                 age: Some(33),
             }).is_ok()
         );
-        assert!(
-            dao.insert_into(Person {
-                id: None,
-                name: Some("Foo2".to_string()),
-                family: Some("Bar2".to_string()),
-                age: Some(40),
-            }).is_ok()
-        );
+        dao.insert_into(Person {
+            id: None,
+            name: Some("Foo2".to_string()),
+            family: Some("Bar2".to_string()),
+            age: None,
+        }).unwrap();
         assert_eq!(dao.count(), 2);
+        let persons = dao.get_all().unwrap();
+
+        assert_eq!(persons[0].id, Some(1));
+        assert_eq!(persons[0].name, Some("Foo".to_string()));
+        assert_eq!(persons[0].family, Some("Bar".to_string()));
+        assert_eq!(persons[0].age, Some(33));
+
+        assert_eq!(persons[1].id, Some(2));
+        assert_eq!(persons[1].name, Some("Foo2".to_string()));
+        assert_eq!(persons[1].family, Some("Bar2".to_string()));
+        assert_eq!(persons[1].age, None);
     }
 }
