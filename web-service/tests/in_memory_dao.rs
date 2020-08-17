@@ -81,14 +81,17 @@ mod tests {
         assert_eq!(dao.count(), 2);
         let persons = dao.get_all().unwrap();
 
-        assert_eq!(persons[0].id, Some(1));
-        assert_eq!(persons[0].name, Some("Foo".to_string()));
-        assert_eq!(persons[0].family, Some("Bar".to_string()));
-        assert_eq!(persons[0].age, Some(33));
+        let idx0 = if persons[0].id == Some(1) { 0 } else { 1 };
+        let idx1 = if idx0 == 0 { 1 } else { 0 };
 
-        assert_eq!(persons[1].id, Some(2));
-        assert_eq!(persons[1].name, Some("Foo2".to_string()));
-        assert_eq!(persons[1].family, Some("Bar2".to_string()));
-        assert_eq!(persons[1].age, None);
+        assert_eq!(persons[idx0].id, Some(1));
+        assert_eq!(persons[idx0].name, Some("Foo".to_string()));
+        assert_eq!(persons[idx0].family, Some("Bar".to_string()));
+        assert_eq!(persons[idx0].age, Some(33));
+
+        assert_eq!(persons[idx1].id, Some(2));
+        assert_eq!(persons[idx1].name, Some("Foo2".to_string()));
+        assert_eq!(persons[idx1].family, Some("Bar2".to_string()));
+        assert_eq!(persons[idx1].age, None);
     }
 }
