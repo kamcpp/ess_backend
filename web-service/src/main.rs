@@ -1,28 +1,23 @@
 mod models;
+mod traits;
+mod daos;
 
 use std::sync::{Arc, Mutex};
 use std::ops::Deref;
 use std::env;
-
 use chrono::{Utc, Duration, NaiveDateTime, DateTime};
-
 use rand::Rng;
 use rand::distributions::Alphanumeric;
-
 use tide::{Request, Response, Result};
-
 use common::schema;
 use common::domain::{Employee, IdentityVerifyRequest};
-
 use models::{HelloRequest, HelloResponse, EmployeeModel,
              NewIdentityVerifyRequestModel, NewIdentityVerifyResponseModel,
              CheckIdentityVerifyRequestModel};
-
 use diesel::{insert_into, update, delete};
 use diesel::result::{Error, DatabaseErrorKind};
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
-
 use r2d2_diesel::ConnectionManager;
 
 #[derive(Debug, Clone)]
