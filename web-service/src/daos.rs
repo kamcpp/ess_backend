@@ -1,8 +1,9 @@
+use crate::traits::{Identifiable, Appliable, Dao, DaoResult, Predicate};
+
 use std::vec::Vec;
 use std::ops::DerefMut;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use crate::traits::{Identifiable, Appliable, Dao, DaoResult, Predicate};
 
 pub struct InMemoryDao<EntityType> {
     id_seq: i32,

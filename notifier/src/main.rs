@@ -7,25 +7,19 @@ use std::env;
 use std::cmp::PartialEq;
 use std::hash::{Hash, Hasher};
 
+use common::schema;
+use common::domain::NotifyRequest;
 use chrono::{Utc, Duration, NaiveDateTime, DateTime};
-
 use rand::Rng;
 use rand::distributions::Alphanumeric;
-
 use diesel::{insert_into, update, delete};
 use diesel::result::{Error, DatabaseErrorKind};
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
-
 use r2d2_diesel::ConnectionManager;
-
 use tokio::time;
 use tokio::task;
-
 use futures::join;
-
-use common::schema;
-use common::domain::NotifyRequest;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum MessageType {

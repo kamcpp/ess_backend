@@ -1,8 +1,8 @@
-use chrono::NaiveDateTime;
-
 use crate::schema::employee;
 use crate::schema::id_verify_request;
 use crate::schema::notify_request;
+
+use chrono::NaiveDateTime;
 
 #[derive(Identifiable, Queryable, Associations)]
 #[table_name="employee"]
