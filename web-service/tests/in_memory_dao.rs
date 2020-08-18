@@ -1,5 +1,4 @@
-use web_service::traits::{Identifiable, Appliable, Dao};
-use web_service::daos::InMemoryDao;
+use web_service::in_memory_dao::{Identifiable, Appliable, InMemoryDao};
 
 #[cfg(test)]
 mod tests {

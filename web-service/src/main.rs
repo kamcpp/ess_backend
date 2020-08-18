@@ -1,6 +1,6 @@
 mod models;
-mod traits;
-mod daos;
+mod dao;
+mod in_memory_dao;
 
 use std::sync::{Arc, Mutex};
 use std::ops::Deref;

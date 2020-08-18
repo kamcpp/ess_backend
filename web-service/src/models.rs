@@ -1,3 +1,4 @@
+use chrono::NaiveDateTime;
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Deserialize)]
@@ -23,6 +24,29 @@ pub struct EmployeeModel {
     #[serde(rename = "officeEmail")]
     pub office_email: Option<String>,
     pub mobile: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct IdentityVerifyRequestModel {
+    pub id: Option<i32>,
+    pub reference: Option<String>,
+    pub secret: Option<String>,
+    pub active: Option<bool>,
+    pub create_utc_dt: Option<NaiveDateTime>,
+    pub expire_utc_dt: Option<NaiveDateTime>,
+    pub verified_utc_dt: Option<NaiveDateTime>,
+    pub employee_id: Option<i32>,
+}
+
+#[derive(Debug)]
+pub struct NotifyRequestModel {
+    pub id: Option<i32>,
+    pub title: Option<String>,
+    pub body: Option<String>,
+    pub create_utc_dt: Option<NaiveDateTime>,
+    pub expire_utc_dt: Option<NaiveDateTime>,
+    pub send_utc_dt: Option<NaiveDateTime>,
+    pub employee_id: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
