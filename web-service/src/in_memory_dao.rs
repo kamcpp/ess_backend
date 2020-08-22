@@ -61,8 +61,6 @@ impl std::fmt::Display for InMemoryDaoError {
     }
 }
 
-type Predicate<I, O> = dyn FnMut(&I) -> O;
-
 pub struct InMemoryDb<EntityModelType> {
     id_seq: i32,
     entities: HashMap<i32, EntityModelType>,
@@ -122,7 +120,10 @@ where
         Err(InMemoryDaoError::entity_not_found())
     }
 
-    pub fn get(&self, predicate: &mut Predicate<EntityModelType, bool>) -> DaoResult<Vec<EntityModelType>, InMemoryDaoError> {
+    pub fn get<Predicate>(&self, mut predicate: Predicate) -> DaoResult<Vec<EntityModelType>, InMemoryDaoError>
+    where
+        Predicate: FnMut(&EntityModelType) -> bool {
+
         let mut results = Vec::new();
         for (_, entity) in &self.entities {
             if predicate(entity) {
@@ -132,7 +133,10 @@ where
         Ok(results)
     }
 
-    pub fn get_one(&self, predicate: &mut Predicate<EntityModelType, bool>) -> DaoResult<EntityModelType, InMemoryDaoError> {
+    pub fn get_one<Predicate>(&self, mut predicate: Predicate) -> DaoResult<EntityModelType, InMemoryDaoError>
+    where
+        Predicate: FnMut(&EntityModelType) -> bool {
+
         let found_entities = self.get(predicate)?;
         if found_entities.len() == 0 {
             return Err(InMemoryDaoError::entity_not_found());
@@ -166,6 +170,12 @@ impl Identifiable for EmployeeModel {
 
 impl Appliable for EmployeeModel {
     fn apply(&mut self, other: &Self) {
+        self.first_name = other.first_name.clone();
+        self.second_name = other.second_name.clone();
+        self.employee_nr = other.employee_nr.clone();
+        self.username = other.username.clone();
+        self.office_email = other.office_email.clone();
+        self.mobile = other.mobile.clone();
     }
 }
 
@@ -201,27 +211,27 @@ impl EmployeeDao for InMemoryEmployeeDao {
     type ErrorType = InMemoryDaoError;
 
     fn insert_into(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
-        Ok(())
+        self.db.insert_into(employee_model)
     }
 
     fn update(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
-        Ok(())
+        self.db.update(employee_model)
     }
 
     fn delete(&mut self, id: i32) -> DaoResult<(), Self::ErrorType> {
-        Ok(())
+        self.db.delete(id)
     }
 
     fn get_by_username(&self, username: String) -> DaoResult<EmployeeModel, Self::ErrorType> {
-        Err(InMemoryDaoError::entity_not_found())
+        self.db.get_one(|employee| employee.username == Some(username.clone()))
     }
 
     fn get_one(&self, id: i32) -> DaoResult<EmployeeModel, Self::ErrorType> {
-        Err(InMemoryDaoError::entity_not_found())
+        self.db.get_one_by_id(id)
     }
 
     fn get_all(&self) -> DaoResult<Vec<EmployeeModel>, Self::ErrorType> {
-        Ok(Vec::new())
+        self.db.get_all()
     }
 }
 
