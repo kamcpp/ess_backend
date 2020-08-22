@@ -42,10 +42,11 @@ impl ServiceState {
         let manager = ConnectionManager::<PgConnection>::new(database_url);
         println!("Conneciton pool is created.");
         let conn_pool = Arc::new(Mutex::new(r2d2::Pool::builder().build(manager).expect("Failed to create PostgreSQL connection pool!")));
+        let conn = conn_pool.lock().unwrap().get().expect("Cannot get a connection from pool!");
         Self {
             conn_pool: conn_pool.clone(),
             service: Service::new(
-                Box::new(DieselEmployeeDao::new(conn_pool.clone()))
+                Box::new(DieselEmployeeDao::new(conn)),
             ),
         }
     }

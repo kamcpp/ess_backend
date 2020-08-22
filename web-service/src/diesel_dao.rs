@@ -1,5 +1,8 @@
-use crate::{SharedConnPool, VariantError};
-use crate::dao::{DaoResult, TransactionalDao, TransactionalEmployeeDao, EmployeeDao};
+use crate::VariantError;
+use crate::dao::{DaoResult,
+    TransactionalDao,
+    EmployeeDao,
+    TransactionalEmployeeDao};
 use crate::models::EmployeeModel;
 
 use std::vec::Vec;
@@ -14,16 +17,20 @@ use diesel::{insert_into, update, delete};
 use diesel::result::{Error, DatabaseErrorKind};
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
+use diesel::connection::TransactionManager;
+use r2d2::PooledConnection;
 use r2d2_diesel::ConnectionManager;
 
+// ========================== Employee Dao ===================================
+
 pub struct DieselEmployeeDao {
-    conn_pool: SharedConnPool,
+    conn: PooledConnection<ConnectionManager<PgConnection>>,
 }
 
 impl DieselEmployeeDao {
-    pub fn new(conn_pool: SharedConnPool) -> Self {
+    pub fn new(conn: PooledConnection<ConnectionManager<PgConnection>>) -> Self {
         Self {
-            conn_pool
+            conn
         }
     }
 }
@@ -32,15 +39,18 @@ impl TransactionalDao for DieselEmployeeDao {
     type ErrorType = diesel::result::Error;
 
     fn begin_transaction(&mut self) -> DaoResult<(), Self::ErrorType> {
-        Ok(())
+        let tm = self.conn.transaction_manager();
+        tm.begin_transaction(self.conn.deref())
     }
 
     fn commit(&mut self) -> DaoResult<(), Self::ErrorType> {
-        Ok(())
+        let tm = self.conn.transaction_manager();
+        tm.commit_transaction(self.conn.deref())
     }
 
     fn rollback(&mut self) -> DaoResult<(), Self::ErrorType> {
-        Ok(())
+        let tm = self.conn.transaction_manager();
+        tm.rollback_transaction(self.conn.deref())
     }
 }
 
@@ -50,8 +60,6 @@ impl EmployeeDao for DieselEmployeeDao {
     type ErrorType = diesel::result::Error;
 
     fn insert_into(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
-        let conn_pool = self.conn_pool.lock().unwrap();
-        let conn = conn_pool.get().expect("Cannot get a connection from pool!");
         use schema::employee::dsl::*;
         let values = (
             employee_nr.eq(employee_model.employee_nr.unwrap()),
@@ -61,13 +69,11 @@ impl EmployeeDao for DieselEmployeeDao {
             office_email.eq(employee_model.office_email.unwrap()),
             mobile.eq(employee_model.mobile.unwrap()),
         );
-        conn.transaction::<_, diesel::result::Error, _>(|| {
-            insert_into(employee).values(values).execute(conn.deref())
-        }).map(|_| ())
+        insert_into(employee).values(values).execute(self.conn.deref()).map(|_| {})
     }
 
     fn update(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
-        let conn_pool = self.conn_pool.lock().unwrap();
+        /*let conn_pool = self.conn_pool.lock().unwrap();
         let conn = conn_pool.get().expect("Cannot get a connection from pool!");
         use schema::employee::dsl::*;
         let employee_id = employee_model.id.unwrap();
@@ -91,16 +97,18 @@ impl EmployeeDao for DieselEmployeeDao {
                 update(employee.filter(id.eq(employee_id))).set(mobile.eq(employee_model.mobile.unwrap())).execute(conn.deref())?;
             }
             Ok(())
-        })
+        })*/
+        Ok(())
     }
 
     fn delete(&mut self, id: i32) -> DaoResult<(), Self::ErrorType> {
-        let conn_pool = self.conn_pool.lock().unwrap();
+        /*let conn_pool = self.conn_pool.lock().unwrap();
         let conn = conn_pool.get().expect("Cannot get a connection from pool!");
         use schema::employee::dsl::*;
         conn.transaction::<_, diesel::result::Error, _>(|| {
             delete(employee.filter(id.eq(id))).execute(conn.deref())
-        }).map(|_| ())
+        }).map(|_| ())*/
+        Ok(())
     }
 
     fn get_by_username(&self, username: String) -> DaoResult<EmployeeModel, Self::ErrorType> {
@@ -108,7 +116,7 @@ impl EmployeeDao for DieselEmployeeDao {
     }
 
     fn get_one(&self, id: i32) -> DaoResult<EmployeeModel, Self::ErrorType> {
-        let conn_pool = self.conn_pool.lock().unwrap();
+        /*let conn_pool = self.conn_pool.lock().unwrap();
         let conn = conn_pool.get().expect("Cannot get a connection from pool!");
         use schema::employee::dsl::*;
         let employees: Vec<EmployeeModel> = conn.transaction::<_, diesel::result::Error, _>(|| {
@@ -127,12 +135,13 @@ impl EmployeeDao for DieselEmployeeDao {
         )?;
         if employees.len() == 0 {
             return Err(diesel::result::Error::NotFound)
-        }
-        Ok(employees[0].clone())
+        }*/
+        // Ok(employees[0].clone())
+        Err(diesel::result::Error::NotFound)
     }
 
     fn get_all(&self) -> DaoResult<Vec<EmployeeModel>, Self::ErrorType> {
-        let conn_pool = self.conn_pool.lock().unwrap();
+        /*let conn_pool = self.conn_pool.lock().unwrap();
         let conn = conn_pool.get().expect("Cannot get a connection from pool!");
         use schema::employee::dsl::*;
         conn.transaction::<_, diesel::result::Error, _>(|| {
@@ -148,7 +157,8 @@ impl EmployeeDao for DieselEmployeeDao {
                     office_email: Some(e.office_email.clone()),
                     mobile: Some(e.mobile.clone()),
             }).collect()
-        )
+        )*/
+        Ok(Vec::new())
     }
 }
 
