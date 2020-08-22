@@ -1,4 +1,5 @@
-use crate::dao::{DaoResult};
+use crate::models::{EmployeeModel, IdentityVerifyRequestModel, NotifyRequestModel};
+use crate::dao::{DaoResult, TransactionalDao, EmployeeDao};
 
 use std::vec::Vec;
 use std::ops::DerefMut;
@@ -10,8 +11,8 @@ pub trait Identifiable {
     fn set_id(&mut self, id: i32);
 }
 
-pub trait Appliable<E> {
-    fn apply(&mut self, entity: &E);
+pub trait Appliable {
+    fn apply(&mut self, other: &Self);
 }
 
 #[derive(Debug)]
@@ -62,15 +63,15 @@ impl std::fmt::Display for InMemoryDaoError {
 
 type Predicate<I, O> = dyn FnMut(&I) -> O;
 
-pub struct InMemoryDao<EntityModelType> {
+pub struct InMemoryDb<EntityModelType> {
     id_seq: i32,
     entities: HashMap<i32, EntityModelType>,
 }
 
 #[allow(dead_code)]
-impl<EntityModelType> InMemoryDao<EntityModelType>
+impl<EntityModelType> InMemoryDb<EntityModelType>
 where
-    EntityModelType: Identifiable + Appliable<EntityModelType> + Clone {
+    EntityModelType: Identifiable + Appliable + Clone {
 
     pub fn new() -> Self {
         Self {
@@ -148,6 +149,79 @@ where
             results.push(entity.clone());
         }
         Ok(results)
+    }
+}
+
+// ========================================= Employee Dao =======================================
+
+impl Identifiable for EmployeeModel {
+    fn id(&self) -> Option<i32> {
+        self.id
+    }
+
+    fn set_id(&mut self, id: i32) {
+        self.id = Some(id);
+    }
+}
+
+impl Appliable for EmployeeModel {
+    fn apply(&mut self, other: &Self) {
+    }
+}
+
+pub struct InMemoryEmployeeDao {
+    db: InMemoryDb<EmployeeModel>,
+}
+
+impl InMemoryEmployeeDao {
+    pub fn new() -> Self {
+        Self {
+            db: InMemoryDb::new(),
+        }
+    }
+}
+
+impl TransactionalDao for InMemoryEmployeeDao {
+    type ErrorType = InMemoryDaoError;
+
+    fn begin() -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn commit() -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn rollback() -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+}
+
+impl EmployeeDao for InMemoryEmployeeDao {
+    type ErrorType = InMemoryDaoError;
+
+    fn insert_into(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn update(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn delete(&mut self, id: i32) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn get_by_username(&self, username: String) -> DaoResult<EmployeeModel, Self::ErrorType> {
+        Err(InMemoryDaoError::entity_not_found())
+    }
+
+    fn get_one(&self, id: i32) -> DaoResult<EmployeeModel, Self::ErrorType> {
+        Err(InMemoryDaoError::entity_not_found())
+    }
+
+    fn get_all(&self) -> DaoResult<Vec<EmployeeModel>, Self::ErrorType> {
+        Ok(Vec::new())
     }
 }
 

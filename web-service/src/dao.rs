@@ -3,6 +3,14 @@ use std::vec::Vec;
 
 pub type DaoResult<ReturnType, ErrorType> = std::result::Result<ReturnType, ErrorType>;
 
+pub trait TransactionalDao {
+    type ErrorType;
+
+    fn begin() -> DaoResult<(), Self::ErrorType>;
+    fn commit() -> DaoResult<(), Self::ErrorType>;
+    fn rollback() -> DaoResult<(), Self::ErrorType>;
+}
+
 pub trait EmployeeDao {
     type ErrorType;
 
@@ -27,6 +35,6 @@ pub trait NotifyRequestDao {
     type ErrorType;
 
     fn insert_into(&mut self, notify_req_model: NotifyRequestModel) -> DaoResult<(), Self::ErrorType>;
-    fn makr_as_sent(&mut self, id: i32) -> DaoResult<(), Self::ErrorType>;
+    fn mark_as_sent(&mut self, id: i32) -> DaoResult<(), Self::ErrorType>;
     fn get_not_sent_requests(&self) -> DaoResult<Vec<NotifyRequestModel>, Self::ErrorType>;
 }
