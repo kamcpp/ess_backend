@@ -1,5 +1,15 @@
-use crate::dao::{DaoResult, EmployeeDao};
+use crate::dao::{DaoResult, TransactionalEmployeeDao};
 use crate::models::{EmployeeModel};
+
+use rand::Rng;
+use rand::distributions::Alphanumeric;
+
+fn gen_rand_string(length: usize) -> String {
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(length)
+        .collect::<String>()
+}
 
 #[derive(Debug, Clone)]
 struct IdentityVerifyError;
@@ -25,7 +35,7 @@ impl std::fmt::Display for VariantError {
 }
 
 pub struct Service<DaoErrorType> {
-    employee_dao: Box<dyn EmployeeDao<ErrorType = DaoErrorType> + Send>,
+    employee_dao: Box<dyn TransactionalEmployeeDao<DaoErrorType> + Send>,
 }
 
 type ServiceResult<R, E> = std::result::Result<R, E>;
@@ -34,14 +44,22 @@ impl<DaoErrorType> Service<DaoErrorType>
 where
     DaoErrorType: std::convert::Into<VariantError> {
 
-    pub fn new(employee_dao: Box<dyn EmployeeDao<ErrorType = DaoErrorType> + Send>) -> Self {
+    pub fn new(employee_dao: Box<dyn TransactionalEmployeeDao<DaoErrorType> + Send>) -> Self {
         Self {
             employee_dao
         }
     }
 
     pub fn add_employee(&mut self, employee_model: EmployeeModel) -> ServiceResult<(), DaoErrorType> {
+        self.employee_dao.begin_transaction();
         self.employee_dao.insert_into(employee_model)
+            .map(|_| {
+                self.employee_dao.commit();
+            })
+            .map_err(|err| {
+                self.employee_dao.rollback();
+                err
+            })
     }
 
     pub fn update_employee(&mut self, employee_model: EmployeeModel) -> ServiceResult<(), DaoErrorType> {

@@ -1,5 +1,12 @@
 use crate::models::{EmployeeModel, IdentityVerifyRequestModel, NotifyRequestModel};
-use crate::dao::{DaoResult, TransactionalDao, EmployeeDao, IdentityVerifyRequestDao, NotifyRequestDao};
+use crate::dao::{DaoResult,
+    TransactionalDao,
+    EmployeeDao,
+    IdentityVerifyRequestDao,
+    NotifyRequestDao,
+    TransactionalEmployeeDao,
+    TransactionalIdentityVerifyRequestDao,
+    TransactionalNotifyRequestDao};
 
 use std::vec::Vec;
 use std::ops::DerefMut;
@@ -41,15 +48,15 @@ macro_rules! impl_transactional_dao {
         impl TransactionalDao for $name {
             type ErrorType = InMemoryDaoError;
 
-            fn begin_transaction() -> DaoResult<(), Self::ErrorType> {
+            fn begin_transaction(&mut self) -> DaoResult<(), Self::ErrorType> {
                 Ok(())
             }
 
-            fn commit() -> DaoResult<(), Self::ErrorType> {
+            fn commit(&mut self) -> DaoResult<(), Self::ErrorType> {
                 Ok(())
             }
 
-            fn rollback() -> DaoResult<(), Self::ErrorType> {
+            fn rollback(&mut self) -> DaoResult<(), Self::ErrorType> {
                 Ok(())
             }
         }
@@ -277,6 +284,8 @@ impl EmployeeDao for InMemoryEmployeeDao {
     }
 }
 
+impl TransactionalEmployeeDao<InMemoryDaoError> for InMemoryEmployeeDao {}
+
 // ========================================= Identity Verify Request Dao =======================================
 
 impl Appliable for IdentityVerifyRequestModel {
@@ -333,6 +342,9 @@ impl IdentityVerifyRequestDao for InMemoryIdentityVerifyRequestDao {
     }
 }
 
+impl TransactionalIdentityVerifyRequestDao<InMemoryDaoError> for InMemoryIdentityVerifyRequestDao {}
+
+
 // ========================================= Notify Request Dao =======================================
 
 impl Appliable for NotifyRequestModel {
@@ -366,3 +378,6 @@ impl NotifyRequestDao for InMemoryNotifyRequestDao {
         })
     }
 }
+
+impl TransactionalNotifyRequestDao<InMemoryDaoError> for InMemoryNotifyRequestDao {}
+

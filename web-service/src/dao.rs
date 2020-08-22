@@ -6,9 +6,9 @@ pub type DaoResult<ReturnType, ErrorType> = std::result::Result<ReturnType, Erro
 pub trait TransactionalDao {
     type ErrorType;
 
-    fn begin_transaction() -> DaoResult<(), Self::ErrorType>;
-    fn commit() -> DaoResult<(), Self::ErrorType>;
-    fn rollback() -> DaoResult<(), Self::ErrorType>;
+    fn begin_transaction(&mut self) -> DaoResult<(), Self::ErrorType>;
+    fn commit(&mut self) -> DaoResult<(), Self::ErrorType>;
+    fn rollback(&mut self) -> DaoResult<(), Self::ErrorType>;
 }
 
 pub trait EmployeeDao {
@@ -38,3 +38,7 @@ pub trait NotifyRequestDao {
     fn mark_as_sent(&mut self, id: i32) -> DaoResult<(), Self::ErrorType>;
     fn get_not_sent_requests(&self) -> DaoResult<Vec<NotifyRequestModel>, Self::ErrorType>;
 }
+
+pub trait TransactionalEmployeeDao<E>: TransactionalDao<ErrorType = E> + EmployeeDao<ErrorType = E> {}
+pub trait TransactionalIdentityVerifyRequestDao<E>: TransactionalDao<ErrorType = E> + IdentityVerifyRequestDao<ErrorType = E> {}
+pub trait TransactionalNotifyRequestDao<E>: TransactionalDao<ErrorType = E> + NotifyRequestDao<ErrorType = E> {}

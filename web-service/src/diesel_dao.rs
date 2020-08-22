@@ -1,5 +1,5 @@
 use crate::{SharedConnPool, VariantError};
-use crate::dao::{DaoResult, EmployeeDao};
+use crate::dao::{DaoResult, TransactionalDao, TransactionalEmployeeDao, EmployeeDao};
 use crate::models::EmployeeModel;
 
 use std::vec::Vec;
@@ -27,6 +27,24 @@ impl DieselEmployeeDao {
         }
     }
 }
+
+impl TransactionalDao for DieselEmployeeDao {
+    type ErrorType = diesel::result::Error;
+
+    fn begin_transaction(&mut self) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn commit(&mut self) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn rollback(&mut self) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+}
+
+impl TransactionalEmployeeDao<diesel::result::Error> for DieselEmployeeDao {}
 
 impl EmployeeDao for DieselEmployeeDao {
     type ErrorType = diesel::result::Error;
