@@ -1,10 +1,26 @@
 use crate::models::{EmployeeModel, IdentityVerifyRequestModel, NotifyRequestModel};
-use crate::dao::{DaoResult, TransactionalDao, EmployeeDao, IdentityVerifyRequestDao};
+use crate::dao::{DaoResult, TransactionalDao, EmployeeDao, IdentityVerifyRequestDao, NotifyRequestDao};
 
 use std::vec::Vec;
 use std::ops::DerefMut;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+macro_rules! new_in_memory_dao {
+    ($name:ident, $entity_type:ident) => {
+        pub struct $name {
+            db: InMemoryDb<$entity_type>,
+        }
+
+        impl $name {
+            pub fn new() -> Self {
+                Self {
+                    db: InMemoryDb::new(),
+                }
+            }
+        }
+    }
+}
 
 macro_rules! impl_identifiable {
     ($name:ident) => {
@@ -15,6 +31,26 @@ macro_rules! impl_identifiable {
 
             fn set_id(&mut self, id: i32) {
                 self.id = Some(id);
+            }
+        }
+    }
+}
+
+macro_rules! impl_transactional_dao {
+    ($name:ident) => {
+        impl TransactionalDao for $name {
+            type ErrorType = InMemoryDaoError;
+
+            fn begin_transaction() -> DaoResult<(), Self::ErrorType> {
+                Ok(())
+            }
+
+            fn commit() -> DaoResult<(), Self::ErrorType> {
+                Ok(())
+            }
+
+            fn rollback() -> DaoResult<(), Self::ErrorType> {
+                Ok(())
             }
         }
     }
@@ -184,8 +220,6 @@ where
 
 // ========================================= Employee Dao =======================================
 
-impl_identifiable!(EmployeeModel);
-
 impl Appliable for EmployeeModel {
     fn apply(&mut self, other: &Self) {
         if other.first_name.is_some() {
@@ -209,33 +243,11 @@ impl Appliable for EmployeeModel {
     }
 }
 
-pub struct InMemoryEmployeeDao {
-    db: InMemoryDb<EmployeeModel>,
-}
+impl_identifiable!(EmployeeModel);
 
-impl InMemoryEmployeeDao {
-    pub fn new() -> Self {
-        Self {
-            db: InMemoryDb::new(),
-        }
-    }
-}
+new_in_memory_dao!(InMemoryEmployeeDao, EmployeeModel);
 
-impl TransactionalDao for InMemoryEmployeeDao {
-    type ErrorType = InMemoryDaoError;
-
-    fn begin_transaction() -> DaoResult<(), Self::ErrorType> {
-        Ok(())
-    }
-
-    fn commit() -> DaoResult<(), Self::ErrorType> {
-        Ok(())
-    }
-
-    fn rollback() -> DaoResult<(), Self::ErrorType> {
-        Ok(())
-    }
-}
+impl_transactional_dao!(InMemoryEmployeeDao);
 
 impl EmployeeDao for InMemoryEmployeeDao {
     type ErrorType = InMemoryDaoError;
@@ -267,8 +279,6 @@ impl EmployeeDao for InMemoryEmployeeDao {
 
 // ========================================= Identity Verify Request Dao =======================================
 
-impl_identifiable!(IdentityVerifyRequestModel);
-
 impl Appliable for IdentityVerifyRequestModel {
     fn apply(&mut self, other: &Self) {
         if other.reference.is_some() {
@@ -295,43 +305,23 @@ impl Appliable for IdentityVerifyRequestModel {
     }
 }
 
-pub struct InMemoryIdentityVerifyRequestDao {
-    db: InMemoryDb<IdentityVerifyRequestModel>,
-}
+impl_identifiable!(IdentityVerifyRequestModel);
 
-impl InMemoryIdentityVerifyRequestDao {
-    pub fn new() -> Self {
-        Self {
-            db: InMemoryDb::new(),
-        }
-    }
-}
+new_in_memory_dao!(InMemoryIdentityVerifyRequestDao, IdentityVerifyRequestModel);
 
-impl TransactionalDao for InMemoryIdentityVerifyRequestDao {
-    type ErrorType = InMemoryDaoError;
-
-    fn begin_transaction() -> DaoResult<(), Self::ErrorType> {
-        Ok(())
-    }
-
-    fn commit() -> DaoResult<(), Self::ErrorType> {
-        Ok(())
-    }
-
-    fn rollback() -> DaoResult<(), Self::ErrorType> {
-        Ok(())
-    }
-}
+impl_transactional_dao!(InMemoryIdentityVerifyRequestDao);
 
 impl IdentityVerifyRequestDao for InMemoryIdentityVerifyRequestDao {
     type ErrorType = InMemoryDaoError;
 
     fn insert_into(&mut self, id_verify_req_model: IdentityVerifyRequestModel) -> DaoResult<(), Self::ErrorType> {
-        Ok(())
+        self.db.insert_into(id_verify_req_model)
     }
 
     fn deactivate_all_requests(&mut self, employee_id: i32) -> DaoResult<(), Self::ErrorType> {
-        Ok(())
+        let mut set_values = IdentityVerifyRequestModel::empty();
+        set_values.active = Some(false);
+        self.db.update(set_values, |e| e.employee_id == Some(employee_id))
     }
 
     fn verify_request(&mut self, id: i32) -> DaoResult<(), Self::ErrorType> {
@@ -343,3 +333,36 @@ impl IdentityVerifyRequestDao for InMemoryIdentityVerifyRequestDao {
     }
 }
 
+// ========================================= Notify Request Dao =======================================
+
+impl Appliable for NotifyRequestModel {
+    fn apply(&mut self, other: &Self) {
+    }
+}
+
+impl_identifiable!(NotifyRequestModel);
+
+new_in_memory_dao!(InMemoryNotifyRequestDao, NotifyRequestModel);
+
+impl_transactional_dao!(InMemoryNotifyRequestDao);
+
+impl NotifyRequestDao for InMemoryNotifyRequestDao {
+    type ErrorType = InMemoryDaoError;
+
+    fn insert_into(&mut self, notify_req_model: NotifyRequestModel) -> DaoResult<(), Self::ErrorType> {
+        self.db.insert_into(notify_req_model)
+    }
+
+    fn mark_as_sent(&mut self, id: i32) -> DaoResult<(), Self::ErrorType> {
+        let mut set_values = NotifyRequestModel::empty();
+        set_values.send_utc_dt = Some(chrono::Utc::now().naive_utc());
+        self.db.update(set_values, |e| e.id == Some(id))
+    }
+
+    fn get_not_sent_requests(&self) -> DaoResult<Vec<NotifyRequestModel>, Self::ErrorType> {
+        self.db.get(|e| match e.expire_utc_dt {
+            Some(expire_utc_dt) => return expire_utc_dt.gt(&chrono::Utc::now().naive_utc()) && e.send_utc_dt.is_none(),
+            None => return false,
+        })
+    }
+}
