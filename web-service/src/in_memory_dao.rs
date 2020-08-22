@@ -1,12 +1,16 @@
-use crate::models::{EmployeeModel, IdentityVerifyRequestModel, NotifyRequestModel};
-use crate::dao::{DaoResult,
-    TransactionalDao,
+use crate::models::{
+    EmployeeModel,
+    IdentityVerifyRequestModel,
+    NotifyRequestModel
+};
+use crate::dao::{
+    DaoResult,
+    TransactionContext,
+    TransactionContextBuilder,
     EmployeeDao,
     IdentityVerifyRequestDao,
-    NotifyRequestDao,
-    TransactionalEmployeeDao,
-    TransactionalIdentityVerifyRequestDao,
-    TransactionalNotifyRequestDao};
+    NotifyRequestDao
+};
 
 use std::vec::Vec;
 use std::ops::DerefMut;
@@ -43,23 +47,29 @@ macro_rules! impl_identifiable {
     }
 }
 
-macro_rules! impl_transactional_dao {
-    ($name:ident) => {
-        impl TransactionalDao for $name {
-            type ErrorType = InMemoryDaoError;
+struct InMemoryTransactionContext {}
 
-            fn begin_transaction(&mut self) -> DaoResult<(), Self::ErrorType> {
-                Ok(())
-            }
+impl TransactionContext for InMemoryTransactionContext {
+    type ErrorType = InMemoryDaoError;
 
-            fn commit(&mut self) -> DaoResult<(), Self::ErrorType> {
-                Ok(())
-            }
+    fn begin(&mut self) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
 
-            fn rollback(&mut self) -> DaoResult<(), Self::ErrorType> {
-                Ok(())
-            }
-        }
+    fn commit(&mut self) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn rollback(&mut self) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+}
+
+pub struct InMemoryTransactionContextBuilder {}
+
+impl TransactionContextBuilder<InMemoryDaoError> for InMemoryTransactionContextBuilder {
+    fn build(&self) -> Box<dyn TransactionContext<ErrorType = InMemoryDaoError>> {
+        Box::new(InMemoryTransactionContext {})
     }
 }
 
@@ -254,12 +264,10 @@ impl_identifiable!(EmployeeModel);
 
 new_in_memory_dao!(InMemoryEmployeeDao, EmployeeModel);
 
-impl_transactional_dao!(InMemoryEmployeeDao);
-
 impl EmployeeDao for InMemoryEmployeeDao {
     type ErrorType = InMemoryDaoError;
 
-    fn insert_into(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
+    fn insert_into(&mut self, _tc: &mut Box<dyn TransactionContext<ErrorType = InMemoryDaoError>>,  employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
         self.db.insert_into(employee_model)
     }
 
@@ -283,8 +291,6 @@ impl EmployeeDao for InMemoryEmployeeDao {
         self.db.get_all()
     }
 }
-
-impl TransactionalEmployeeDao<InMemoryDaoError> for InMemoryEmployeeDao {}
 
 // ========================================= Identity Verify Request Dao =======================================
 
@@ -318,8 +324,6 @@ impl_identifiable!(IdentityVerifyRequestModel);
 
 new_in_memory_dao!(InMemoryIdentityVerifyRequestDao, IdentityVerifyRequestModel);
 
-impl_transactional_dao!(InMemoryIdentityVerifyRequestDao);
-
 impl IdentityVerifyRequestDao for InMemoryIdentityVerifyRequestDao {
     type ErrorType = InMemoryDaoError;
 
@@ -342,9 +346,6 @@ impl IdentityVerifyRequestDao for InMemoryIdentityVerifyRequestDao {
     }
 }
 
-impl TransactionalIdentityVerifyRequestDao<InMemoryDaoError> for InMemoryIdentityVerifyRequestDao {}
-
-
 // ========================================= Notify Request Dao =======================================
 
 impl Appliable for NotifyRequestModel {
@@ -355,8 +356,6 @@ impl Appliable for NotifyRequestModel {
 impl_identifiable!(NotifyRequestModel);
 
 new_in_memory_dao!(InMemoryNotifyRequestDao, NotifyRequestModel);
-
-impl_transactional_dao!(InMemoryNotifyRequestDao);
 
 impl NotifyRequestDao for InMemoryNotifyRequestDao {
     type ErrorType = InMemoryDaoError;
@@ -378,6 +377,4 @@ impl NotifyRequestDao for InMemoryNotifyRequestDao {
         })
     }
 }
-
-impl TransactionalNotifyRequestDao<InMemoryDaoError> for InMemoryNotifyRequestDao {}
 

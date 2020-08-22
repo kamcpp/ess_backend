@@ -1,4 +1,4 @@
-use crate::dao::{DaoResult, TransactionalEmployeeDao};
+use crate::dao::{DaoResult, TransactionContext, TransactionContextBuilder, EmployeeDao};
 use crate::models::{EmployeeModel};
 
 use rand::Rng;
@@ -35,7 +35,8 @@ impl std::fmt::Display for VariantError {
 }
 
 pub struct Service<DaoErrorType> {
-    employee_dao: Box<dyn TransactionalEmployeeDao<DaoErrorType> + Send>,
+    transaction_context_builder: Box<dyn TransactionContextBuilder<DaoErrorType> + Send>,
+    employee_dao: Box<dyn EmployeeDao<ErrorType = DaoErrorType> + Send>,
 }
 
 type ServiceResult<R, E> = std::result::Result<R, E>;
@@ -44,38 +45,75 @@ impl<DaoErrorType> Service<DaoErrorType>
 where
     DaoErrorType: std::convert::Into<VariantError> {
 
-    pub fn new(employee_dao: Box<dyn TransactionalEmployeeDao<DaoErrorType> + Send>) -> Self {
+    pub fn new(transaction_context_builder: Box<dyn TransactionContextBuilder<DaoErrorType> + Send>,
+               employee_dao: Box<dyn EmployeeDao<ErrorType = DaoErrorType> + Send>) -> Self {
         Self {
+            transaction_context_builder,
             employee_dao
         }
     }
 
     pub fn add_employee(&mut self, employee_model: EmployeeModel) -> ServiceResult<(), DaoErrorType> {
-        self.employee_dao.begin_transaction();
-        self.employee_dao.insert_into(employee_model)
+        let mut transaction_context = self.transaction_context_builder.build();
+        transaction_context.begin();
+        self.employee_dao.insert_into(&mut transaction_context, employee_model)
             .map(|_| {
-                self.employee_dao.commit();
+                transaction_context.commit();
             })
             .map_err(|err| {
-                self.employee_dao.rollback();
+                transaction_context.rollback();
                 err
             })
     }
 
     pub fn update_employee(&mut self, employee_model: EmployeeModel) -> ServiceResult<(), DaoErrorType> {
+        //self.employee_dao.begin_transaction();
         self.employee_dao.update(employee_model)
+            /*.map(|_| {
+                self.employee_dao.commit();
+            })
+            .map_err(|err| {
+                self.employee_dao.rollback();
+                err
+            })*/
     }
 
     pub fn delete_employee(&mut self, employee_id: i32) -> ServiceResult<(), DaoErrorType> {
+        //self.employee_dao.begin_transaction();
         self.employee_dao.delete(employee_id)
+        /*    .map(|_| {
+                self.employee_dao.commit();
+            })
+            .map_err(|err| {
+                self.employee_dao.rollback();
+                err
+            })*/
     }
 
     pub fn get_employee(&mut self, employee_id: i32) -> ServiceResult<EmployeeModel, DaoErrorType> {
+        // self.employee_dao.begin_transaction();
         self.employee_dao.get_one(employee_id)
+           /* .map(|e| {
+                self.employee_dao.commit();
+                e
+            })
+            .map_err(|err| {
+                self.employee_dao.rollback();
+                err
+            })*/
     }
 
     pub fn get_all_employees(&mut self) -> ServiceResult<Vec<EmployeeModel>, DaoErrorType> {
+        // self.employee_dao.begin_transaction();
         self.employee_dao.get_all()
+         /*   .map(|v| {
+                self.employee_dao.commit();
+                v
+            })
+            .map_err(|err| {
+                self.employee_dao.rollback();
+                err
+            })*/
     }
 
     /*pub fn new_id_verify_req(&mut self, id_veirfy_req: NewIdentityVerifyRequestModel) -> ServiceResult<NewIdentityVerifyResponseModel, DaoErrorType> {

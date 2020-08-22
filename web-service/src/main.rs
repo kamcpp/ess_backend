@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::ops::Deref;
 use std::env;
 
-use diesel_dao::DieselEmployeeDao;
+use diesel_dao::{DieselTransactionContextBuilder, DieselEmployeeDao};
 use service::Service;
 use chrono::{Utc, Duration, NaiveDateTime, DateTime};
 use rand::Rng;
@@ -46,6 +46,7 @@ impl ServiceState {
         Self {
             conn_pool: conn_pool.clone(),
             service: Service::new(
+                Box::new(DieselTransactionContextBuilder::new()),
                 Box::new(DieselEmployeeDao::new(conn)),
             ),
         }

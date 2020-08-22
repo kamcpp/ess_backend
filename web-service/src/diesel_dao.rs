@@ -1,8 +1,10 @@
 use crate::VariantError;
-use crate::dao::{DaoResult,
-    TransactionalDao,
-    EmployeeDao,
-    TransactionalEmployeeDao};
+use crate::dao::{
+    DaoResult,
+    TransactionContext,
+    TransactionContextBuilder,
+    EmployeeDao
+};
 use crate::models::EmployeeModel;
 
 use std::vec::Vec;
@@ -21,6 +23,38 @@ use diesel::connection::TransactionManager;
 use r2d2::PooledConnection;
 use r2d2_diesel::ConnectionManager;
 
+struct DieselTransactionContext {}
+
+impl TransactionContext for DieselTransactionContext {
+    type ErrorType = diesel::result::Error;
+
+    fn begin(&mut self) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn commit(&mut self) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn rollback(&mut self) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+}
+
+pub struct DieselTransactionContextBuilder {}
+
+impl DieselTransactionContextBuilder {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl TransactionContextBuilder<diesel::result::Error> for DieselTransactionContextBuilder {
+    fn build(&self) -> Box<dyn TransactionContext<ErrorType = diesel::result::Error>> {
+        Box::new(DieselTransactionContext {})
+    }
+}
+
 // ========================== Employee Dao ===================================
 
 pub struct DieselEmployeeDao {
@@ -35,31 +69,10 @@ impl DieselEmployeeDao {
     }
 }
 
-impl TransactionalDao for DieselEmployeeDao {
-    type ErrorType = diesel::result::Error;
-
-    fn begin_transaction(&mut self) -> DaoResult<(), Self::ErrorType> {
-        let tm = self.conn.transaction_manager();
-        tm.begin_transaction(self.conn.deref())
-    }
-
-    fn commit(&mut self) -> DaoResult<(), Self::ErrorType> {
-        let tm = self.conn.transaction_manager();
-        tm.commit_transaction(self.conn.deref())
-    }
-
-    fn rollback(&mut self) -> DaoResult<(), Self::ErrorType> {
-        let tm = self.conn.transaction_manager();
-        tm.rollback_transaction(self.conn.deref())
-    }
-}
-
-impl TransactionalEmployeeDao<diesel::result::Error> for DieselEmployeeDao {}
-
 impl EmployeeDao for DieselEmployeeDao {
     type ErrorType = diesel::result::Error;
 
-    fn insert_into(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
+    fn insert_into(&mut self, _tc: &mut Box<dyn TransactionContext<ErrorType = Self::ErrorType>>, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
         use schema::employee::dsl::*;
         let values = (
             employee_nr.eq(employee_model.employee_nr.unwrap()),
