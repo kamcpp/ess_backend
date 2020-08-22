@@ -26,7 +26,21 @@ pub struct EmployeeModel {
     pub mobile: Option<String>,
 }
 
-#[derive(Debug)]
+impl EmployeeModel {
+    pub fn empty() -> Self {
+        Self {
+            id: None,
+            employee_nr: None,
+            first_name: None,
+            second_name: None,
+            username: None,
+            office_email: None,
+            mobile: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct IdentityVerifyRequestModel {
     pub id: Option<i32>,
     pub reference: Option<String>,
@@ -38,7 +52,22 @@ pub struct IdentityVerifyRequestModel {
     pub employee_id: Option<i32>,
 }
 
-#[derive(Debug)]
+impl IdentityVerifyRequestModel {
+    pub fn empty() -> Self {
+        Self {
+            id: None,
+            reference: None,
+            secret: None,
+            active: None,
+            create_utc_dt: None,
+            expire_utc_dt: None,
+            verified_utc_dt: None,
+            employee_id: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct NotifyRequestModel {
     pub id: Option<i32>,
     pub title: Option<String>,
@@ -47,6 +76,20 @@ pub struct NotifyRequestModel {
     pub expire_utc_dt: Option<NaiveDateTime>,
     pub send_utc_dt: Option<NaiveDateTime>,
     pub employee_id: Option<i32>,
+}
+
+impl NotifyRequestModel {
+    pub fn empty() -> Self {
+        Self {
+            id: None,
+            title: None,
+            body: None,
+            create_utc_dt: None,
+            expire_utc_dt: None,
+            send_utc_dt: None,
+            employee_id: None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

@@ -6,7 +6,7 @@ pub type DaoResult<ReturnType, ErrorType> = std::result::Result<ReturnType, Erro
 pub trait TransactionalDao {
     type ErrorType;
 
-    fn begin() -> DaoResult<(), Self::ErrorType>;
+    fn begin_transaction() -> DaoResult<(), Self::ErrorType>;
     fn commit() -> DaoResult<(), Self::ErrorType>;
     fn rollback() -> DaoResult<(), Self::ErrorType>;
 }

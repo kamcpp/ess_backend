@@ -1,10 +1,24 @@
 use crate::models::{EmployeeModel, IdentityVerifyRequestModel, NotifyRequestModel};
-use crate::dao::{DaoResult, TransactionalDao, EmployeeDao};
+use crate::dao::{DaoResult, TransactionalDao, EmployeeDao, IdentityVerifyRequestDao};
 
 use std::vec::Vec;
 use std::ops::DerefMut;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+macro_rules! impl_identifiable {
+    ($name:ident) => {
+        impl Identifiable for $name {
+            fn id(&self) -> Option<i32> {
+                self.id
+            }
+
+            fn set_id(&mut self, id: i32) {
+                self.id = Some(id);
+            }
+        }
+    }
+}
 
 pub trait Identifiable {
     fn id(&self) -> Option<i32>;
@@ -93,7 +107,19 @@ where
         Ok(())
     }
 
-    pub fn update(&mut self, set_values: EntityModelType) -> DaoResult<(), InMemoryDaoError> {
+    pub fn update<Predicate>(&mut self, set_values: EntityModelType, mut predicate: Predicate) -> DaoResult<(), InMemoryDaoError>
+    where
+        Predicate: FnMut(&EntityModelType) -> bool {
+
+        for (_, entity) in &mut self.entities {
+            if predicate(entity) {
+                entity.apply(&set_values);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn update_one(&mut self, set_values: EntityModelType) -> DaoResult<(), InMemoryDaoError> {
         if set_values.id().is_none() {
             return Err(InMemoryDaoError::id_field_must_not_be_none());
         }
@@ -158,24 +184,28 @@ where
 
 // ========================================= Employee Dao =======================================
 
-impl Identifiable for EmployeeModel {
-    fn id(&self) -> Option<i32> {
-        self.id
-    }
-
-    fn set_id(&mut self, id: i32) {
-        self.id = Some(id);
-    }
-}
+impl_identifiable!(EmployeeModel);
 
 impl Appliable for EmployeeModel {
     fn apply(&mut self, other: &Self) {
-        self.first_name = other.first_name.clone();
-        self.second_name = other.second_name.clone();
-        self.employee_nr = other.employee_nr.clone();
-        self.username = other.username.clone();
-        self.office_email = other.office_email.clone();
-        self.mobile = other.mobile.clone();
+        if other.first_name.is_some() {
+            self.first_name = other.first_name.clone();
+        }
+        if other.second_name.is_some() {
+            self.second_name = other.second_name.clone();
+        }
+        if other.employee_nr.is_some() {
+            self.employee_nr = other.employee_nr.clone();
+        }
+        if other.username.is_some() {
+            self.username = other.username.clone();
+        }
+        if other.office_email.is_some() {
+            self.office_email = other.office_email.clone();
+        }
+        if other.mobile.is_some() {
+            self.mobile = other.mobile.clone();
+        }
     }
 }
 
@@ -194,7 +224,7 @@ impl InMemoryEmployeeDao {
 impl TransactionalDao for InMemoryEmployeeDao {
     type ErrorType = InMemoryDaoError;
 
-    fn begin() -> DaoResult<(), Self::ErrorType> {
+    fn begin_transaction() -> DaoResult<(), Self::ErrorType> {
         Ok(())
     }
 
@@ -215,7 +245,7 @@ impl EmployeeDao for InMemoryEmployeeDao {
     }
 
     fn update(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
-        self.db.update(employee_model)
+        self.db.update_one(employee_model)
     }
 
     fn delete(&mut self, id: i32) -> DaoResult<(), Self::ErrorType> {
@@ -232,6 +262,84 @@ impl EmployeeDao for InMemoryEmployeeDao {
 
     fn get_all(&self) -> DaoResult<Vec<EmployeeModel>, Self::ErrorType> {
         self.db.get_all()
+    }
+}
+
+// ========================================= Identity Verify Request Dao =======================================
+
+impl_identifiable!(IdentityVerifyRequestModel);
+
+impl Appliable for IdentityVerifyRequestModel {
+    fn apply(&mut self, other: &Self) {
+        if other.reference.is_some() {
+            self.reference = other.reference.clone();
+        }
+        if other.secret.is_some() {
+            self.secret = other.secret.clone();
+        }
+        if other.active.is_some() {
+            self.active = other.active.clone();
+        }
+        if other.create_utc_dt.is_some() {
+            self.create_utc_dt = other.create_utc_dt.clone();
+        }
+        if other.expire_utc_dt.is_some() {
+            self.expire_utc_dt = other.expire_utc_dt.clone();
+        }
+        if other.verified_utc_dt.is_some() {
+            self.verified_utc_dt = other.verified_utc_dt.clone();
+        }
+        if other.employee_id.is_some() {
+            self.employee_id = other.employee_id.clone();
+        }
+    }
+}
+
+pub struct InMemoryIdentityVerifyRequestDao {
+    db: InMemoryDb<IdentityVerifyRequestModel>,
+}
+
+impl InMemoryIdentityVerifyRequestDao {
+    pub fn new() -> Self {
+        Self {
+            db: InMemoryDb::new(),
+        }
+    }
+}
+
+impl TransactionalDao for InMemoryIdentityVerifyRequestDao {
+    type ErrorType = InMemoryDaoError;
+
+    fn begin_transaction() -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn commit() -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn rollback() -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+}
+
+impl IdentityVerifyRequestDao for InMemoryIdentityVerifyRequestDao {
+    type ErrorType = InMemoryDaoError;
+
+    fn insert_into(&mut self, id_verify_req_model: IdentityVerifyRequestModel) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn deactivate_all_requests(&mut self, employee_id: i32) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn verify_request(&mut self, id: i32) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn get_active_request_by_reference(&self, reference: String) -> DaoResult<IdentityVerifyRequestModel, Self::ErrorType> {
+        Err(InMemoryDaoError::entity_not_found())
     }
 }
 
