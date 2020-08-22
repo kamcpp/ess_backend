@@ -9,8 +9,8 @@ pub trait EmployeeDao {
     fn insert_into(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType>;
     fn update(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType>;
     fn delete(&mut self, id: i32) -> DaoResult<(), Self::ErrorType>;
-    fn get_by_username(&self, username: String) -> DaoResult<Option<EmployeeModel>, Self::ErrorType>;
-    fn get_one(&self, id: i32) -> DaoResult<Option<EmployeeModel>, Self::ErrorType>;
+    fn get_by_username(&self, username: String) -> DaoResult<EmployeeModel, Self::ErrorType>;
+    fn get_one(&self, id: i32) -> DaoResult<EmployeeModel, Self::ErrorType>;
     fn get_all(&self) -> DaoResult<Vec<EmployeeModel>, Self::ErrorType>;
 }
 

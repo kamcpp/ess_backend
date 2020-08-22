@@ -38,12 +38,12 @@ impl EmployeeDao for InMemoryEmployeeDao {
         dao.delete(id)
     }
 
-    fn get_by_username(&self, username: String) -> DaoResult<Option<EmployeeModel>, Self::ErrorType> {
+    fn get_by_username(&self, username: String) -> DaoResult<EmployeeModel, Self::ErrorType> {
         let dao = self.dao.lock().unwrap();
         dao.get_one(|e| e.username == username)
     }
 
-    fn get_one(&self, id: i32) -> DaoResult<Option<EmployeeModel>, Self::ErrorType> {
+    fn get_one(&self, id: i32) -> DaoResult<EmployeeModel, Self::ErrorType> {
         let dao = self.dao.lock().unwrap();
         dao.get_one_by_id(id)
     }

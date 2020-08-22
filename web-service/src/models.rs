@@ -11,7 +11,7 @@ pub struct HelloResponse {
     pub greeting: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct EmployeeModel {
     pub id: Option<i32>,
     #[serde(rename = "employeeNr")]
