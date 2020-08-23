@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::ops::Deref;
 use std::env;
 
-use diesel_dao::{DieselTransactionContextBuilder, DieselEmployeeDao};
+use diesel_dao::{DieselTransactionContextBuilder, DieselTransactionContext, DieselEmployeeDao};
 use service::Service;
 use chrono::{Utc, Duration, NaiveDateTime, DateTime};
 use rand::Rng;
@@ -24,14 +24,11 @@ use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use r2d2_diesel::ConnectionManager;
 
-type SharedConnPool = Arc<Mutex<r2d2::Pool<ConnectionManager<PgConnection>>>>;
-
-struct ServiceState {
-    conn_pool: SharedConnPool,
-    service: Service<diesel::result::Error>,
+struct AppState {
+    service: Service<diesel::result::Error, DieselTransactionContext>,
 }
 
-impl ServiceState {
+impl AppState {
     fn new() -> Self {
         let user = env::var("POSTGRES_USER").unwrap_or("simurgh_da".to_string());
         let password = env::var("POSTGRES_PASSWORD").unwrap_or("not-set".to_string());
@@ -41,19 +38,17 @@ impl ServiceState {
         let database_url = format!("postgres://{}:{}@{}/{}", user, password, addr, db);
         let manager = ConnectionManager::<PgConnection>::new(database_url);
         println!("Conneciton pool is created.");
-        let conn_pool = Arc::new(Mutex::new(r2d2::Pool::builder().build(manager).expect("Failed to create PostgreSQL connection pool!")));
-        let conn = conn_pool.lock().unwrap().get().expect("Cannot get a connection from pool!");
+        let conn_pool = r2d2::Pool::builder().build(manager).expect("Failed to create PostgreSQL connection pool!");
         Self {
-            conn_pool: conn_pool.clone(),
             service: Service::new(
-                Box::new(DieselTransactionContextBuilder::new()),
-                Box::new(DieselEmployeeDao::new(conn)),
+                Box::new(DieselTransactionContextBuilder::new(conn_pool)),
+                Box::new(DieselEmployeeDao::new()),
             ),
         }
     }
 }
 
-type SharedSyncState = Arc<Mutex<ServiceState>>;
+type SharedSyncState = Arc<Mutex<AppState>>;
 
 enum VariantError {
     DieselError(Error),
@@ -83,6 +78,7 @@ fn gen_rand_string(length: usize) -> String {
 }
 
 async fn handle_new_id_verify_req(mut req: Request<SharedSyncState>) -> Result<Response> {
+    /*
     // Try to parse the request body containing thet model
     let model: NewIdentityVerifyRequestModel = match req.body_json().await {
         Ok(parsed_model) => parsed_model,
@@ -134,20 +130,20 @@ async fn handle_new_id_verify_req(mut req: Request<SharedSyncState>) -> Result<R
                 reference: reference_value,
                 server_utc_dt: now.timestamp(),
             };
-            match serde_json::to_string(&response) {
-                Ok(body_str) => return Ok(Response::builder(200).body(body_str).build()),
-                Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
+            match serde_json::to_string(&response) {*/
+                /*Ok(body_str) => */return Ok(Response::builder(200).body("ok".to_string()).build());
+/*                Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
             };
         },
         Err(err) => match err {
             diesel::result::Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
             error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
         },
-    }
+    }*/
 }
 
 async fn handle_check_id_verify_req(mut req: Request<SharedSyncState>) -> Result<Response> {
-
+/*
     // Try to parse the request body containing thet model
     let model: CheckIdentityVerifyRequestModel = match req.body_json().await {
         Ok(parsed_model) => parsed_model,
@@ -182,14 +178,14 @@ async fn handle_check_id_verify_req(mut req: Request<SharedSyncState>) -> Result
             verify_utc_dt.eq(Utc::now().naive_utc()),
         )).execute(conn.deref())?;
         Ok(())
-    }) {
-        Ok(_) => return Ok(Response::builder(200).body("".to_string()).build()),
-        Err(err) => match err {
+    }) {*/
+        /*Ok(_) =>*/ return Ok(Response::builder(200).body("".to_string()).build());
+        /*Err(err) => match err {
             VariantError::IdentityVerifyError => return Ok(Response::builder(403).body("identity verification failed".to_string()).build()),
             VariantError::DieselError(Error::NotFound) => return Ok(Response::builder(404).body("not found".to_string()).build()),
             error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
         },
-    }
+    }*/
 }
 
 async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Response> {
@@ -316,7 +312,7 @@ async fn handle_hello(mut req: Request<SharedSyncState>) -> Result<String> {
 
 #[async_std::main]
 async fn main() -> std::result::Result<(), std::io::Error> {
-    let state = Arc::new(Mutex::new(ServiceState::new()));
+    let state = Arc::new(Mutex::new(AppState::new()));
     println!("Simurgh web service is running now ...");
     let mut app = tide::with_state(state);
     app.at("/api/pam/hello").post(handle_hello);

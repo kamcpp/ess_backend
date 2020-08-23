@@ -34,19 +34,20 @@ impl std::fmt::Display for VariantError {
     }
 }
 
-pub struct Service<DaoErrorType> {
-    transaction_context_builder: Box<dyn TransactionContextBuilder<DaoErrorType> + Send>,
-    employee_dao: Box<dyn EmployeeDao<ErrorType = DaoErrorType> + Send>,
+pub struct Service<DaoErrorType, TransactionContextType> {
+    transaction_context_builder: Box<dyn TransactionContextBuilder<TransactionContextType> + Send>,
+    employee_dao: Box<dyn EmployeeDao<ErrorType = DaoErrorType, TransactionContextType = TransactionContextType> + Send>,
 }
 
 type ServiceResult<R, E> = std::result::Result<R, E>;
 
-impl<DaoErrorType> Service<DaoErrorType>
+impl<DaoErrorType, TransactionContextType> Service<DaoErrorType, TransactionContextType>
 where
-    DaoErrorType: std::convert::Into<VariantError> {
+    DaoErrorType: std::convert::Into<VariantError>,
+    TransactionContextType: TransactionContext {
 
-    pub fn new(transaction_context_builder: Box<dyn TransactionContextBuilder<DaoErrorType> + Send>,
-               employee_dao: Box<dyn EmployeeDao<ErrorType = DaoErrorType> + Send>) -> Self {
+    pub fn new(transaction_context_builder: Box<dyn TransactionContextBuilder<TransactionContextType> + Send>,
+               employee_dao: Box<dyn EmployeeDao<ErrorType = DaoErrorType, TransactionContextType = TransactionContextType> + Send>) -> Self {
         Self {
             transaction_context_builder,
             employee_dao

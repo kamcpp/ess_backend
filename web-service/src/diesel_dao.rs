@@ -20,59 +20,67 @@ use diesel::result::{Error, DatabaseErrorKind};
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use diesel::connection::TransactionManager;
-use r2d2::PooledConnection;
+use r2d2::{PooledConnection, Pool};
 use r2d2_diesel::ConnectionManager;
 
-struct DieselTransactionContext {}
+pub struct DieselTransactionContext {
+    conn: PooledConnection<ConnectionManager<PgConnection>>,
+}
 
 impl TransactionContext for DieselTransactionContext {
     type ErrorType = diesel::result::Error;
 
     fn begin(&mut self) -> DaoResult<(), Self::ErrorType> {
-        Ok(())
+        let tm = self.conn.transaction_manager();
+        tm.begin_transaction(self.conn.deref())
     }
 
     fn commit(&mut self) -> DaoResult<(), Self::ErrorType> {
-        Ok(())
+        let tm = self.conn.transaction_manager();
+        tm.commit_transaction(self.conn.deref())
     }
 
     fn rollback(&mut self) -> DaoResult<(), Self::ErrorType> {
-        Ok(())
+        let tm = self.conn.transaction_manager();
+        tm.rollback_transaction(self.conn.deref())
     }
 }
 
-pub struct DieselTransactionContextBuilder {}
+pub struct DieselTransactionContextBuilder {
+    conn_pool: Pool<ConnectionManager<PgConnection>>,
+}
 
 impl DieselTransactionContextBuilder {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(conn_pool: Pool<ConnectionManager<PgConnection>>) -> Self {
+        Self {
+            conn_pool
+        }
     }
 }
 
-impl TransactionContextBuilder<diesel::result::Error> for DieselTransactionContextBuilder {
-    fn build(&self) -> Box<dyn TransactionContext<ErrorType = diesel::result::Error>> {
-        Box::new(DieselTransactionContext {})
+impl TransactionContextBuilder<DieselTransactionContext> for DieselTransactionContextBuilder {
+    fn build(&self) -> DieselTransactionContext {
+        let conn = self.conn_pool.get().expect("Cannot get a connection from pool!");
+        DieselTransactionContext { conn }
     }
 }
 
 // ========================== Employee Dao ===================================
 
 pub struct DieselEmployeeDao {
-    conn: PooledConnection<ConnectionManager<PgConnection>>,
 }
 
 impl DieselEmployeeDao {
-    pub fn new(conn: PooledConnection<ConnectionManager<PgConnection>>) -> Self {
-        Self {
-            conn
-        }
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
 impl EmployeeDao for DieselEmployeeDao {
     type ErrorType = diesel::result::Error;
+    type TransactionContextType = DieselTransactionContext;
 
-    fn insert_into(&mut self, _tc: &mut Box<dyn TransactionContext<ErrorType = Self::ErrorType>>, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
+    fn insert_into(&mut self, tc: &mut Self::TransactionContextType, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
         use schema::employee::dsl::*;
         let values = (
             employee_nr.eq(employee_model.employee_nr.unwrap()),
@@ -82,7 +90,7 @@ impl EmployeeDao for DieselEmployeeDao {
             office_email.eq(employee_model.office_email.unwrap()),
             mobile.eq(employee_model.mobile.unwrap()),
         );
-        insert_into(employee).values(values).execute(self.conn.deref()).map(|_| {})
+        insert_into(employee).values(values).execute(tc.conn.deref()).map(|_| {})
     }
 
     fn update(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {

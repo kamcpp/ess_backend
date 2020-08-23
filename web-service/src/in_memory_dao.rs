@@ -47,7 +47,7 @@ macro_rules! impl_identifiable {
     }
 }
 
-struct InMemoryTransactionContext {}
+pub struct InMemoryTransactionContext {}
 
 impl TransactionContext for InMemoryTransactionContext {
     type ErrorType = InMemoryDaoError;
@@ -67,9 +67,9 @@ impl TransactionContext for InMemoryTransactionContext {
 
 pub struct InMemoryTransactionContextBuilder {}
 
-impl TransactionContextBuilder<InMemoryDaoError> for InMemoryTransactionContextBuilder {
-    fn build(&self) -> Box<dyn TransactionContext<ErrorType = InMemoryDaoError>> {
-        Box::new(InMemoryTransactionContext {})
+impl TransactionContextBuilder<InMemoryTransactionContext> for InMemoryTransactionContextBuilder {
+    fn build(&self) -> InMemoryTransactionContext {
+        InMemoryTransactionContext {}
     }
 }
 
@@ -266,8 +266,9 @@ new_in_memory_dao!(InMemoryEmployeeDao, EmployeeModel);
 
 impl EmployeeDao for InMemoryEmployeeDao {
     type ErrorType = InMemoryDaoError;
+    type TransactionContextType = InMemoryTransactionContext;
 
-    fn insert_into(&mut self, _tc: &mut Box<dyn TransactionContext<ErrorType = InMemoryDaoError>>,  employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
+    fn insert_into(&mut self, _tc: &mut Self::TransactionContextType,  employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
         self.db.insert_into(employee_model)
     }
 

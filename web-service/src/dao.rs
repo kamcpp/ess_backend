@@ -11,14 +11,15 @@ pub trait TransactionContext {
     fn rollback(&mut self) -> DaoResult<(), Self::ErrorType>;
 }
 
-pub trait TransactionContextBuilder<ErrorType> {
-    fn build(&self) -> Box<dyn TransactionContext<ErrorType = ErrorType>>;
+pub trait TransactionContextBuilder<TransactionContextType> {
+    fn build(&self) -> TransactionContextType;
 }
 
 pub trait EmployeeDao {
     type ErrorType;
+    type TransactionContextType;
 
-    fn insert_into(&mut self, tc: &mut Box<dyn TransactionContext<ErrorType = Self::ErrorType>>, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType>;
+    fn insert_into(&mut self, tc: &mut Self::TransactionContextType, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType>;
     fn update(&mut self/*, tc: TransactionContext<Self::ErrorType>*/, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType>;
     fn delete(&mut self/*, tc: TransactionContext<Self::ErrorType>*/, id: i32) -> DaoResult<(), Self::ErrorType>;
     fn get_by_username(&self/*, tc: TransactionContext<Self::ErrorType>*/, username: String) -> DaoResult<EmployeeModel, Self::ErrorType>;
