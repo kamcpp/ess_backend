@@ -268,27 +268,27 @@ impl EmployeeDao for InMemoryEmployeeDao {
     type ErrorType = InMemoryDaoError;
     type TransactionContextType = InMemoryTransactionContext;
 
-    fn insert_into(&mut self, _tc: &mut Self::TransactionContextType,  employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
+    fn insert_into(&mut self, _transaction_context: &mut Self::TransactionContextType,  employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
         self.db.insert_into(employee_model)
     }
 
-    fn update(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
+    fn update(&mut self, _transaction_context: &mut Self::TransactionContextType, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
         self.db.update_one(employee_model)
     }
 
-    fn delete(&mut self, id: i32) -> DaoResult<(), Self::ErrorType> {
+    fn delete(&mut self, _transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<(), Self::ErrorType> {
         self.db.delete(id)
     }
 
-    fn get_by_username(&self, username: String) -> DaoResult<EmployeeModel, Self::ErrorType> {
+    fn get_by_username(&self, _transaction_context: &mut Self::TransactionContextType, username: String) -> DaoResult<EmployeeModel, Self::ErrorType> {
         self.db.get_one(|employee| employee.username == Some(username.clone()))
     }
 
-    fn get_one(&self, id: i32) -> DaoResult<EmployeeModel, Self::ErrorType> {
+    fn get_one(&self, _transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<EmployeeModel, Self::ErrorType> {
         self.db.get_one_by_id(id)
     }
 
-    fn get_all(&self) -> DaoResult<Vec<EmployeeModel>, Self::ErrorType> {
+    fn get_all(&self, _transaction_context: &mut Self::TransactionContextType) -> DaoResult<Vec<EmployeeModel>, Self::ErrorType> {
         self.db.get_all()
     }
 }
@@ -327,22 +327,23 @@ new_in_memory_dao!(InMemoryIdentityVerifyRequestDao, IdentityVerifyRequestModel)
 
 impl IdentityVerifyRequestDao for InMemoryIdentityVerifyRequestDao {
     type ErrorType = InMemoryDaoError;
+    type TransactionContextType = InMemoryTransactionContext;
 
-    fn insert_into(&mut self, id_verify_req_model: IdentityVerifyRequestModel) -> DaoResult<(), Self::ErrorType> {
+    fn insert_into(&mut self, _transaction_context: &mut Self::TransactionContextType, id_verify_req_model: IdentityVerifyRequestModel) -> DaoResult<(), Self::ErrorType> {
         self.db.insert_into(id_verify_req_model)
     }
 
-    fn deactivate_all_requests(&mut self, employee_id: i32) -> DaoResult<(), Self::ErrorType> {
+    fn deactivate_all_requests(&mut self, _transaction_context: &mut Self::TransactionContextType, employee_id: i32) -> DaoResult<(), Self::ErrorType> {
         let mut set_values = IdentityVerifyRequestModel::empty();
         set_values.active = Some(false);
         self.db.update(set_values, |e| e.employee_id == Some(employee_id))
     }
 
-    fn verify_request(&mut self, id: i32) -> DaoResult<(), Self::ErrorType> {
+    fn verify_request(&mut self, _transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<(), Self::ErrorType> {
         Ok(())
     }
 
-    fn get_active_request_by_reference(&self, reference: String) -> DaoResult<IdentityVerifyRequestModel, Self::ErrorType> {
+    fn get_active_request_by_reference(&self, _transaction_context: &mut Self::TransactionContextType, reference: String) -> DaoResult<IdentityVerifyRequestModel, Self::ErrorType> {
         Err(InMemoryDaoError::entity_not_found())
     }
 }
@@ -360,18 +361,19 @@ new_in_memory_dao!(InMemoryNotifyRequestDao, NotifyRequestModel);
 
 impl NotifyRequestDao for InMemoryNotifyRequestDao {
     type ErrorType = InMemoryDaoError;
+    type TransactionContextType = InMemoryTransactionContext;
 
-    fn insert_into(&mut self, notify_req_model: NotifyRequestModel) -> DaoResult<(), Self::ErrorType> {
+    fn insert_into(&mut self, _transaction_context: &mut Self::TransactionContextType, notify_req_model: NotifyRequestModel) -> DaoResult<(), Self::ErrorType> {
         self.db.insert_into(notify_req_model)
     }
 
-    fn mark_as_sent(&mut self, id: i32) -> DaoResult<(), Self::ErrorType> {
+    fn mark_as_sent(&mut self, _transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<(), Self::ErrorType> {
         let mut set_values = NotifyRequestModel::empty();
         set_values.send_utc_dt = Some(chrono::Utc::now().naive_utc());
         self.db.update(set_values, |e| e.id == Some(id))
     }
 
-    fn get_not_sent_requests(&self) -> DaoResult<Vec<NotifyRequestModel>, Self::ErrorType> {
+    fn get_not_sent_requests(&self, _transaction_context: &mut Self::TransactionContextType) -> DaoResult<Vec<NotifyRequestModel>, Self::ErrorType> {
         self.db.get(|e| match e.expire_utc_dt {
             Some(expire_utc_dt) => return expire_utc_dt.gt(&chrono::Utc::now().naive_utc()) && e.send_utc_dt.is_none(),
             None => return false,

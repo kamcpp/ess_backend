@@ -80,7 +80,7 @@ impl EmployeeDao for DieselEmployeeDao {
     type ErrorType = diesel::result::Error;
     type TransactionContextType = DieselTransactionContext;
 
-    fn insert_into(&mut self, tc: &mut Self::TransactionContextType, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
+    fn insert_into(&mut self, transaction_context: &mut Self::TransactionContextType, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
         use schema::employee::dsl::*;
         let values = (
             employee_nr.eq(employee_model.employee_nr.unwrap()),
@@ -90,39 +90,34 @@ impl EmployeeDao for DieselEmployeeDao {
             office_email.eq(employee_model.office_email.unwrap()),
             mobile.eq(employee_model.mobile.unwrap()),
         );
-        insert_into(employee).values(values).execute(tc.conn.deref()).map(|_| {})
+        insert_into(employee).values(values).execute(transaction_context.conn.deref()).map(|_| {})
     }
 
-    fn update(&mut self, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
-        /*let conn_pool = self.conn_pool.lock().unwrap();
-        let conn = conn_pool.get().expect("Cannot get a connection from pool!");
+    fn update(&mut self, transaction_context: &mut Self::TransactionContextType, employee_model: EmployeeModel) -> DaoResult<(), Self::ErrorType> {
         use schema::employee::dsl::*;
         let employee_id = employee_model.id.unwrap();
-        conn.transaction::<_, diesel::result::Error, _>(|| {
-            if employee_model.employee_nr.is_some() {
-                update(employee.filter(id.eq(employee_id))).set(employee_nr.eq(employee_model.employee_nr.unwrap())).execute(conn.deref())?;
-            }
-            if employee_model.first_name.is_some() {
-                update(employee.filter(id.eq(employee_id))).set(first_name.eq(employee_model.first_name.unwrap())).execute(conn.deref())?;
-            }
-            if employee_model.second_name.is_some() {
-                update(employee.filter(id.eq(employee_id))).set(second_name.eq(employee_model.second_name.unwrap())).execute(conn.deref())?;
-            }
-            if employee_model.username.is_some() {
-                update(employee.filter(id.eq(employee_id))).set(username.eq(employee_model.username.unwrap())).execute(conn.deref())?;
-            }
-            if employee_model.office_email.is_some() {
-                update(employee.filter(id.eq(employee_id))).set(office_email.eq(employee_model.office_email.unwrap())).execute(conn.deref())?;
-            }
-            if employee_model.mobile.is_some() {
-                update(employee.filter(id.eq(employee_id))).set(mobile.eq(employee_model.mobile.unwrap())).execute(conn.deref())?;
-            }
-            Ok(())
-        })*/
+        if employee_model.employee_nr.is_some() {
+            update(employee.filter(id.eq(employee_id))).set(employee_nr.eq(employee_model.employee_nr.unwrap())).execute(transaction_context.conn.deref())?;
+        }
+        if employee_model.first_name.is_some() {
+            update(employee.filter(id.eq(employee_id))).set(first_name.eq(employee_model.first_name.unwrap())).execute(transaction_context.conn.deref())?;
+        }
+        if employee_model.second_name.is_some() {
+            update(employee.filter(id.eq(employee_id))).set(second_name.eq(employee_model.second_name.unwrap())).execute(transaction_context.conn.deref())?;
+        }
+        if employee_model.username.is_some() {
+            update(employee.filter(id.eq(employee_id))).set(username.eq(employee_model.username.unwrap())).execute(transaction_context.conn.deref())?;
+        }
+        if employee_model.office_email.is_some() {
+            update(employee.filter(id.eq(employee_id))).set(office_email.eq(employee_model.office_email.unwrap())).execute(transaction_context.conn.deref())?;
+        }
+        if employee_model.mobile.is_some() {
+            update(employee.filter(id.eq(employee_id))).set(mobile.eq(employee_model.mobile.unwrap())).execute(transaction_context.conn.deref())?;
+        }
         Ok(())
     }
 
-    fn delete(&mut self, id: i32) -> DaoResult<(), Self::ErrorType> {
+    fn delete(&mut self, transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<(), Self::ErrorType> {
         /*let conn_pool = self.conn_pool.lock().unwrap();
         let conn = conn_pool.get().expect("Cannot get a connection from pool!");
         use schema::employee::dsl::*;
@@ -132,11 +127,11 @@ impl EmployeeDao for DieselEmployeeDao {
         Ok(())
     }
 
-    fn get_by_username(&self, username: String) -> DaoResult<EmployeeModel, Self::ErrorType> {
+    fn get_by_username(&self, transaction_context: &mut Self::TransactionContextType, username: String) -> DaoResult<EmployeeModel, Self::ErrorType> {
         Err(diesel::result::Error::NotFound)
     }
 
-    fn get_one(&self, id: i32) -> DaoResult<EmployeeModel, Self::ErrorType> {
+    fn get_one(&self, transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<EmployeeModel, Self::ErrorType> {
         /*let conn_pool = self.conn_pool.lock().unwrap();
         let conn = conn_pool.get().expect("Cannot get a connection from pool!");
         use schema::employee::dsl::*;
@@ -161,7 +156,7 @@ impl EmployeeDao for DieselEmployeeDao {
         Err(diesel::result::Error::NotFound)
     }
 
-    fn get_all(&self) -> DaoResult<Vec<EmployeeModel>, Self::ErrorType> {
+    fn get_all(&self, transaction_context: &mut Self::TransactionContextType) -> DaoResult<Vec<EmployeeModel>, Self::ErrorType> {
         /*let conn_pool = self.conn_pool.lock().unwrap();
         let conn = conn_pool.get().expect("Cannot get a connection from pool!");
         use schema::employee::dsl::*;
