@@ -1,11 +1,19 @@
-use crate::VariantError;
 use crate::dao::{
     DaoResult,
     TransactionContext,
     TransactionContextBuilder,
-    EmployeeDao
+    EmployeeDao,
+    IdentityVerifyRequestDao,
+    NotifyRequestDao
 };
-use crate::models::EmployeeModel;
+use crate::models::{
+    EmployeeModel,
+    IdentityVerifyRequestModel,
+    NotifyRequestModel,
+};
+use crate::service::{
+    ServiceError,
+};
 
 use std::vec::Vec;
 use std::ops::DerefMut;
@@ -22,6 +30,12 @@ use diesel::pg::PgConnection;
 use diesel::connection::TransactionManager;
 use r2d2::{PooledConnection, Pool};
 use r2d2_diesel::ConnectionManager;
+
+impl From<diesel::result::Error> for ServiceError<diesel::result::Error> {
+    fn from(error: diesel::result::Error) -> Self {
+        ServiceError::DaoError(error)
+    }
+}
 
 pub struct DieselTransactionContext {
     conn: PooledConnection<ConnectionManager<PgConnection>>,
@@ -178,3 +192,63 @@ impl EmployeeDao for DieselEmployeeDao {
     }
 }
 
+// ========================== Identity Verify Request Dao ===================================
+
+pub struct DieselIdentityVerifyRequestDao {
+}
+
+impl DieselIdentityVerifyRequestDao {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl IdentityVerifyRequestDao for DieselIdentityVerifyRequestDao {
+    type ErrorType = diesel::result::Error;
+    type TransactionContextType = DieselTransactionContext;
+
+    fn insert_into(&mut self, transaction_context: &mut Self::TransactionContextType, id_verify_req_model: IdentityVerifyRequestModel) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn deactivate_all_requests(&mut self, transaction_context: &mut Self::TransactionContextType, employee_id: i32) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn verify_request(&mut self, transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn get_active_request_by_reference(&self, transaction_context: &mut Self::TransactionContextType, reference: String) -> DaoResult<IdentityVerifyRequestModel, Self::ErrorType> {
+        Err(diesel::result::Error::NotFound)
+    }
+}
+
+// ========================== Identity Verify Request Dao ===================================
+
+pub struct DieselNotifyRequestDao {
+}
+
+impl DieselNotifyRequestDao {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl NotifyRequestDao for DieselNotifyRequestDao {
+    type ErrorType = diesel::result::Error;
+    type TransactionContextType = DieselTransactionContext;
+
+    fn insert_into(&mut self, transaction_context: &mut Self::TransactionContextType, notify_req_model: NotifyRequestModel) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn mark_as_sent(&mut self, transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<(), Self::ErrorType> {
+        Ok(())
+    }
+
+    fn get_not_sent_requests(&self, transaction_context: &mut Self::TransactionContextType) -> DaoResult<Vec<NotifyRequestModel>, Self::ErrorType> {
+        Ok(Vec::new())
+    }
+
+}

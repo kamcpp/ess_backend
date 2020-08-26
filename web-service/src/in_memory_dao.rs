@@ -11,6 +11,9 @@ use crate::dao::{
     IdentityVerifyRequestDao,
     NotifyRequestDao
 };
+use crate::service::{
+    ServiceError,
+};
 
 use std::vec::Vec;
 use std::ops::DerefMut;
@@ -125,6 +128,12 @@ impl InMemoryDaoError {
 impl std::fmt::Display for InMemoryDaoError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} (Error Code: {})", self.msg, self.code)
+    }
+}
+
+impl From<InMemoryDaoError> for ServiceError<InMemoryDaoError> {
+    fn from(error: InMemoryDaoError) -> Self {
+        ServiceError::DaoError(error)
     }
 }
 
@@ -312,8 +321,8 @@ impl Appliable for IdentityVerifyRequestModel {
         if other.expire_utc_dt.is_some() {
             self.expire_utc_dt = other.expire_utc_dt.clone();
         }
-        if other.verified_utc_dt.is_some() {
-            self.verified_utc_dt = other.verified_utc_dt.clone();
+        if other.verify_utc_dt.is_some() {
+            self.verify_utc_dt = other.verify_utc_dt.clone();
         }
         if other.employee_id.is_some() {
             self.employee_id = other.employee_id.clone();

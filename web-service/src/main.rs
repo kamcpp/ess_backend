@@ -3,26 +3,41 @@ mod dao;
 mod diesel_dao;
 mod service;
 
+use service::{
+    Service,
+    ServiceError,
+};
+use models::{
+    HelloRequest,
+    HelloResponse,
+    EmployeeModel,
+    NewIdentityVerifyRequestModel,
+    NewIdentityVerifyResponseModel,
+    CheckIdentityVerifyRequestModel,
+};
+use diesel_dao::{
+    DieselTransactionContextBuilder,
+    DieselTransactionContext,
+    DieselEmployeeDao,
+    DieselIdentityVerifyRequestDao,
+    DieselNotifyRequestDao,
+};
+
 use std::sync::{Arc, Mutex};
 use std::ops::Deref;
 use std::env;
 
-use diesel_dao::{DieselTransactionContextBuilder, DieselTransactionContext, DieselEmployeeDao};
-use service::Service;
 use chrono::{Utc, Duration, NaiveDateTime, DateTime};
 use rand::Rng;
 use rand::distributions::Alphanumeric;
-use tide::{Request, Response, Result};
 use common::schema;
 use common::domain::{Employee, IdentityVerifyRequest};
-use models::{HelloRequest, HelloResponse, EmployeeModel,
-             NewIdentityVerifyRequestModel, NewIdentityVerifyResponseModel,
-             CheckIdentityVerifyRequestModel};
 use diesel::{insert_into, update, delete};
 use diesel::result::{Error, DatabaseErrorKind};
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use r2d2_diesel::ConnectionManager;
+use tide::{Request, Response, Result};
 
 struct AppState {
     service: Service<diesel::result::Error, DieselTransactionContext>,
@@ -43,6 +58,8 @@ impl AppState {
             service: Service::new(
                 Box::new(DieselTransactionContextBuilder::new(conn_pool)),
                 Box::new(DieselEmployeeDao::new()),
+                Box::new(DieselIdentityVerifyRequestDao::new()),
+                Box::new(DieselNotifyRequestDao::new()),
             ),
         }
     }
@@ -78,7 +95,6 @@ fn gen_rand_string(length: usize) -> String {
 }
 
 async fn handle_new_id_verify_req(mut req: Request<SharedSyncState>) -> Result<Response> {
-    /*
     // Try to parse the request body containing thet model
     let model: NewIdentityVerifyRequestModel = match req.body_json().await {
         Ok(parsed_model) => parsed_model,
@@ -89,61 +105,26 @@ async fn handle_new_id_verify_req(mut req: Request<SharedSyncState>) -> Result<R
     if now.signed_duration_since(client_now).num_minutes().abs() > 5 {
         return Ok(Response::builder(400).body("".to_string()).build());
     }
-    println!("{:?}", model);
-    // This locks the 'state' and unlocks it when returning from function
-    let state = req.state().lock().unwrap();
-    // Get a conneciton from the pool
-    let conn = state.conn_pool.lock().unwrap().get().expect("Cannot get a connection from pool!");
-    use schema::employee::dsl::*;
-    use schema::id_verify_request::dsl::*;
-    use schema::notify_request::dsl::*;
-    match conn.transaction::<_, _, _>(|| {
-        let employees = employee.filter(username.eq(model.username)).load::<Employee>(conn.deref())?;
-        if employees.len() == 0 {
-            return Err(Error::NotFound);
-        }
-        let target_employee = &employees[0];
-        let secret_value = gen_rand_string(8);
-        let reference_value = gen_rand_string(16);
-        update(id_verify_request.filter(schema::id_verify_request::dsl::employee_id.eq(target_employee.id))).set((
-            active.eq(false),
-        )).execute(conn.deref())?;
-        insert_into(id_verify_request).values((
-            reference.eq(reference_value.clone()),
-            secret.eq(secret_value.clone()),
-            active.eq(true),
-            schema::id_verify_request::dsl::create_utc_dt.eq(now.naive_utc()),
-            schema::id_verify_request::dsl::expire_utc_dt.eq((now + Duration::minutes(5)).naive_utc()),
-            schema::id_verify_request::dsl::employee_id.eq(target_employee.id),
-        )).execute(conn.deref())?;
-        insert_into(notify_request).values((
-            title.eq("Simurgh Identity Verification System"),
-            body.eq(format!("Your code: {}", secret_value)),
-            schema::notify_request::dsl::create_utc_dt.eq(now.naive_utc()),
-            schema::notify_request::dsl::expire_utc_dt.eq((now + Duration::minutes(15)).naive_utc()),
-            schema::notify_request::dsl::employee_id.eq(target_employee.id),
-        )).execute(conn.deref())?;
-        Ok(reference_value)
-    }) {
-        Ok(reference_value) => {
-            let response = NewIdentityVerifyResponseModel {
-                reference: reference_value,
-                server_utc_dt: now.timestamp(),
-            };
-            match serde_json::to_string(&response) {*/
-                /*Ok(body_str) => */return Ok(Response::builder(200).body("ok".to_string()).build());
-/*                Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
-            };
+    let mut state = req.state().lock().unwrap();
+    match state.service.new_id_verify_req(model) {
+        Ok(response) => {
+            match serde_json::to_string(&response) {
+                Ok(body_str) => return Ok(Response::builder(200).body(body_str.to_string()).build()),
+                Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
+            }
         },
         Err(err) => match err {
-            diesel::result::Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
-            error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
+            ServiceError::DaoError(err) => match err {
+                diesel::result::Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
+                error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
+            },
+            _ => return Ok(Response::builder(500).body("unknown error").build()),
         },
-    }*/
+    }
 }
 
 async fn handle_check_id_verify_req(mut req: Request<SharedSyncState>) -> Result<Response> {
-/*
+
     // Try to parse the request body containing thet model
     let model: CheckIdentityVerifyRequestModel = match req.body_json().await {
         Ok(parsed_model) => parsed_model,
@@ -154,38 +135,15 @@ async fn handle_check_id_verify_req(mut req: Request<SharedSyncState>) -> Result
     if now.signed_duration_since(client_now).num_minutes().abs() > 5 {
         return Ok(Response::builder(400).body("".to_string()).build());
     }
-    // This locks the 'state' and unlocks it when returning from function
-    let state = req.state().lock().unwrap();
-    // Get a conneciton from the pool
-    let conn = state.conn_pool.lock().unwrap().get().expect("Cannot get a connection from pool!");
-    use schema::id_verify_request::dsl::*;
-    match conn.transaction::<_, _, _>(|| {
-        let id_verify_requests =
-            id_verify_request.filter(
-                reference.eq(model.reference)
-                .and(active.eq(true))
-                .and(expire_utc_dt.gt(now.naive_utc())))
-            .load::<IdentityVerifyRequest>(conn.deref())?;
-        if id_verify_requests.len() == 0 {
-            return Err(VariantError::DieselError(Error::NotFound));
-        }
-        let target_request = &id_verify_requests[0];
-        if target_request.secret != model.client_secret {
-            return Err(VariantError::IdentityVerifyError);
-        }
-        update(target_request).set((
-            active.eq(false),
-            verify_utc_dt.eq(Utc::now().naive_utc()),
-        )).execute(conn.deref())?;
-        Ok(())
-    }) {*/
-        /*Ok(_) =>*/ return Ok(Response::builder(200).body("".to_string()).build());
-        /*Err(err) => match err {
-            VariantError::IdentityVerifyError => return Ok(Response::builder(403).body("identity verification failed".to_string()).build()),
-            VariantError::DieselError(Error::NotFound) => return Ok(Response::builder(404).body("not found".to_string()).build()),
+    let mut state = req.state().lock().unwrap();
+    match state.service.check_id_verify_req(model) {
+        Ok(_) => return Ok(Response::builder(200).body("".to_string()).build()),
+        Err(err) => match err {
+            ServiceError::IdentityVerifyError => return Ok(Response::builder(403).body("identity verification failed".to_string()).build()),
+            ServiceError::DaoError(Error::NotFound) => return Ok(Response::builder(404).body("not found".to_string()).build()),
             error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
         },
-    }*/
+    }
 }
 
 async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Response> {
@@ -219,11 +177,14 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
     match state.service.add_employee(employee_model) {
         Ok(_) => return Ok(Response::builder(200).body("ok".to_string()).build()),
         Err(err) => match err {
-            Error::DatabaseError(kind, info) => match kind {
-                DatabaseErrorKind::UniqueViolation => return Ok(Response::builder(409).body(format!("{:?}", info)).build()),
-                _ => return Ok(Response::builder(500).body(format!("{:?}", info)).build()),
+            ServiceError::DaoError(err) => match err {
+                Error::DatabaseError(kind, info) => match kind {
+                    DatabaseErrorKind::UniqueViolation => return Ok(Response::builder(409).body(format!("{:?}", info)).build()),
+                    _ => return Ok(Response::builder(500).body(format!("{:?}", info)).build()),
+                },
+                error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
             },
-            error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
+            _ => return Ok(Response::builder(500).body("unknown error").build()),
         },
     }
 }
@@ -244,12 +205,15 @@ async fn handle_update_employee(mut req: Request<SharedSyncState>) -> Result<Res
     match state.service.update_employee(employee_model) {
         Ok(_) => return Ok(Response::builder(200).body("ok".to_string()).build()),
         Err(err) => match err {
-            Error::DatabaseError(kind, info) => match kind {
-                DatabaseErrorKind::UniqueViolation => return Ok(Response::builder(409).body(format!("{:?}", info)).build()),
-                _ => return Ok(Response::builder(500).body(format!("{:?}", info)).build()),
+            ServiceError::DaoError(err) => match err {
+                Error::DatabaseError(kind, info) => match kind {
+                    DatabaseErrorKind::UniqueViolation => return Ok(Response::builder(409).body(format!("{:?}", info)).build()),
+                    _ => return Ok(Response::builder(500).body(format!("{:?}", info)).build()),
+                },
+                Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
+                error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
             },
-            Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
-            error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
+            _ => return Ok(Response::builder(500).body("unknown error").build()),
         },
     }
 }
@@ -264,8 +228,11 @@ async fn handle_delete_employee(req: Request<SharedSyncState>) -> Result<Respons
     match state.service.delete_employee(employee_id) {
         Ok(_) => return Ok(Response::builder(200).body("ok".to_string()).build()),
         Err(err) => match err {
-            Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
-            error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
+            ServiceError::DaoError(err) => match err {
+                Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
+                error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
+            },
+            _ => return Ok(Response::builder(500).body("unknown error").build()),
         },
     }
 }
@@ -298,8 +265,11 @@ async fn handle_get_employee(req: Request<SharedSyncState>) -> Result<Response> 
             };
         },
         Err(err) => match err {
-            Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
-            error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
+            ServiceError::DaoError(err) => match err {
+                Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
+                error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
+            },
+            _ => return Ok(Response::builder(500).body("unknown error").build()),
         },
     }
 }

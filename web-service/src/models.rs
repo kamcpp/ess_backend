@@ -48,7 +48,7 @@ pub struct IdentityVerifyRequestModel {
     pub active: Option<bool>,
     pub create_utc_dt: Option<NaiveDateTime>,
     pub expire_utc_dt: Option<NaiveDateTime>,
-    pub verified_utc_dt: Option<NaiveDateTime>,
+    pub verify_utc_dt: Option<NaiveDateTime>,
     pub employee_id: Option<i32>,
 }
 
@@ -61,7 +61,7 @@ impl IdentityVerifyRequestModel {
             active: None,
             create_utc_dt: None,
             expire_utc_dt: None,
-            verified_utc_dt: None,
+            verify_utc_dt: None,
             employee_id: None,
         }
     }
@@ -106,7 +106,7 @@ pub struct NewIdentityVerifyResponseModel {
     pub server_utc_dt: i64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct CheckIdentityVerifyRequestModel {
     pub reference: String,
     #[serde(rename = "clientSecret")]
