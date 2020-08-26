@@ -16,13 +16,9 @@ use crate::service::{
 };
 
 use std::vec::Vec;
-use std::ops::DerefMut;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use std::ops::Deref;
 
 use common::schema;
-use common::domain::Employee;
 use diesel::{insert_into, update, delete};
 use diesel::result::{Error, DatabaseErrorKind};
 use diesel::prelude::*;
@@ -131,7 +127,7 @@ impl EmployeeDao for DieselEmployeeDao {
         Ok(())
     }
 
-    fn delete(&mut self, transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<(), Self::ErrorType> {
+    fn delete(&mut self, _transaction_context: &mut Self::TransactionContextType, _id: i32) -> DaoResult<(), Self::ErrorType> {
         /*let conn_pool = self.conn_pool.lock().unwrap();
         let conn = conn_pool.get().expect("Cannot get a connection from pool!");
         use schema::employee::dsl::*;
@@ -141,11 +137,11 @@ impl EmployeeDao for DieselEmployeeDao {
         Ok(())
     }
 
-    fn get_by_username(&self, transaction_context: &mut Self::TransactionContextType, username: String) -> DaoResult<EmployeeModel, Self::ErrorType> {
+    fn get_by_username(&self, _transaction_context: &mut Self::TransactionContextType, _username: String) -> DaoResult<EmployeeModel, Self::ErrorType> {
         Err(diesel::result::Error::NotFound)
     }
 
-    fn get_one(&self, transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<EmployeeModel, Self::ErrorType> {
+    fn get_one(&self, _transaction_context: &mut Self::TransactionContextType, _id: i32) -> DaoResult<EmployeeModel, Self::ErrorType> {
         /*let conn_pool = self.conn_pool.lock().unwrap();
         let conn = conn_pool.get().expect("Cannot get a connection from pool!");
         use schema::employee::dsl::*;
@@ -170,7 +166,7 @@ impl EmployeeDao for DieselEmployeeDao {
         Err(diesel::result::Error::NotFound)
     }
 
-    fn get_all(&self, transaction_context: &mut Self::TransactionContextType) -> DaoResult<Vec<EmployeeModel>, Self::ErrorType> {
+    fn get_all(&self, _transaction_context: &mut Self::TransactionContextType) -> DaoResult<Vec<EmployeeModel>, Self::ErrorType> {
         /*let conn_pool = self.conn_pool.lock().unwrap();
         let conn = conn_pool.get().expect("Cannot get a connection from pool!");
         use schema::employee::dsl::*;
@@ -207,19 +203,23 @@ impl IdentityVerifyRequestDao for DieselIdentityVerifyRequestDao {
     type ErrorType = diesel::result::Error;
     type TransactionContextType = DieselTransactionContext;
 
-    fn insert_into(&mut self, transaction_context: &mut Self::TransactionContextType, id_verify_req_model: IdentityVerifyRequestModel) -> DaoResult<(), Self::ErrorType> {
+    fn insert_into(&mut self, _transaction_context: &mut Self::TransactionContextType, _id_verify_req_model: IdentityVerifyRequestModel) -> DaoResult<(), Self::ErrorType> {
+        // TODO
         Ok(())
     }
 
-    fn deactivate_all_requests(&mut self, transaction_context: &mut Self::TransactionContextType, employee_id: i32) -> DaoResult<(), Self::ErrorType> {
+    fn deactivate_all_requests(&mut self, _transaction_context: &mut Self::TransactionContextType, _employee_id: i32) -> DaoResult<(), Self::ErrorType> {
+        // TODO
         Ok(())
     }
 
-    fn verify_request(&mut self, transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<(), Self::ErrorType> {
+    fn verify_request(&mut self, _transaction_context: &mut Self::TransactionContextType, _id: i32) -> DaoResult<(), Self::ErrorType> {
+        // TODO
         Ok(())
     }
 
-    fn get_active_request_by_reference(&self, transaction_context: &mut Self::TransactionContextType, reference: String) -> DaoResult<IdentityVerifyRequestModel, Self::ErrorType> {
+    fn get_active_request_by_reference(&self, _transaction_context: &mut Self::TransactionContextType, _reference: String) -> DaoResult<IdentityVerifyRequestModel, Self::ErrorType> {
+        // TODO
         Err(diesel::result::Error::NotFound)
     }
 }
@@ -239,15 +239,18 @@ impl NotifyRequestDao for DieselNotifyRequestDao {
     type ErrorType = diesel::result::Error;
     type TransactionContextType = DieselTransactionContext;
 
-    fn insert_into(&mut self, transaction_context: &mut Self::TransactionContextType, notify_req_model: NotifyRequestModel) -> DaoResult<(), Self::ErrorType> {
+    fn insert_into(&mut self, _transaction_context: &mut Self::TransactionContextType, _notify_req_model: NotifyRequestModel) -> DaoResult<(), Self::ErrorType> {
+        // TODO
         Ok(())
     }
 
-    fn mark_as_sent(&mut self, transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<(), Self::ErrorType> {
+    fn mark_as_sent(&mut self, _transaction_context: &mut Self::TransactionContextType, _id: i32) -> DaoResult<(), Self::ErrorType> {
+        // TODO
         Ok(())
     }
 
-    fn get_not_sent_requests(&self, transaction_context: &mut Self::TransactionContextType) -> DaoResult<Vec<NotifyRequestModel>, Self::ErrorType> {
+    fn get_not_sent_requests(&self, _transaction_context: &mut Self::TransactionContextType) -> DaoResult<Vec<NotifyRequestModel>, Self::ErrorType> {
+        // TODO
         Ok(Vec::new())
     }
 

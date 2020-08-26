@@ -12,7 +12,6 @@ use models::{
     HelloResponse,
     EmployeeModel,
     NewIdentityVerifyRequestModel,
-    NewIdentityVerifyResponseModel,
     CheckIdentityVerifyRequestModel,
 };
 use diesel_dao::{
@@ -24,17 +23,10 @@ use diesel_dao::{
 };
 
 use std::sync::{Arc, Mutex};
-use std::ops::Deref;
 use std::env;
 
-use chrono::{Utc, Duration, NaiveDateTime, DateTime};
-use rand::Rng;
-use rand::distributions::Alphanumeric;
-use common::schema;
-use common::domain::{Employee, IdentityVerifyRequest};
-use diesel::{insert_into, update, delete};
+use chrono::{Utc, NaiveDateTime, DateTime};
 use diesel::result::{Error, DatabaseErrorKind};
-use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use r2d2_diesel::ConnectionManager;
 use tide::{Request, Response, Result};
@@ -67,35 +59,7 @@ impl AppState {
 
 type SharedSyncState = Arc<Mutex<AppState>>;
 
-enum VariantError {
-    DieselError(Error),
-    IdentityVerifyError,
-}
-
-impl From<Error> for VariantError {
-    fn from(error: Error) -> Self {
-        VariantError::DieselError(error)
-    }
-}
-
-impl std::fmt::Display for VariantError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VariantError::DieselError(err) => write!(f, "{}", err),
-            VariantError::IdentityVerifyError => write!(f, "identity verification error"),
-        }
-    }
-}
-
-fn gen_rand_string(length: usize) -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(length)
-        .collect::<String>()
-}
-
 async fn handle_new_id_verify_req(mut req: Request<SharedSyncState>) -> Result<Response> {
-    // Try to parse the request body containing thet model
     let model: NewIdentityVerifyRequestModel = match req.body_json().await {
         Ok(parsed_model) => parsed_model,
         Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
@@ -124,8 +88,6 @@ async fn handle_new_id_verify_req(mut req: Request<SharedSyncState>) -> Result<R
 }
 
 async fn handle_check_id_verify_req(mut req: Request<SharedSyncState>) -> Result<Response> {
-
-    // Try to parse the request body containing thet model
     let model: CheckIdentityVerifyRequestModel = match req.body_json().await {
         Ok(parsed_model) => parsed_model,
         Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
@@ -147,7 +109,6 @@ async fn handle_check_id_verify_req(mut req: Request<SharedSyncState>) -> Result
 }
 
 async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Response> {
-    // Try to parse the request body containing the employee model
     let employee_model: EmployeeModel = match req.body_json().await {
         Ok(parsed_employee_model) => parsed_employee_model,
         Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
@@ -190,12 +151,10 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
 }
 
 async fn handle_update_employee(mut req: Request<SharedSyncState>) -> Result<Response> {
-    // Try to parse the request body containing the employee model
     let mut employee_model: EmployeeModel = match req.body_json().await {
         Ok(parsed_employee_model) => parsed_employee_model,
         Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
     };
-    // Read 'employee id' from the path
     let employee_id: i32 = match req.param("id") {
         Ok(value) => value,
         Err(err) => return Ok(Response::builder(400).body(format!("'id' is mandatory and must be provided as part of path: {}", err)).build()),
@@ -219,7 +178,6 @@ async fn handle_update_employee(mut req: Request<SharedSyncState>) -> Result<Res
 }
 
 async fn handle_delete_employee(req: Request<SharedSyncState>) -> Result<Response> {
-    // Read 'employee id' from the path
     let employee_id: i32 = match req.param("id") {
         Ok(value) => value,
         Err(err) => return Ok(Response::builder(400).body(format!("'id' is mandatory and must be provided as part of path: {}", err)).build()),
@@ -251,7 +209,6 @@ async fn handle_get_all_employees(req: Request<SharedSyncState>) -> Result<Respo
 }
 
 async fn handle_get_employee(req: Request<SharedSyncState>) -> Result<Response> {
-    // Read 'employee id' from the path
     let employee_id: i32 = match req.param("id") {
         Ok(value) => value,
         Err(err) => return Ok(Response::builder(400).body(format!("'id' is mandatory and must be provided as part of path: {}", err)).build()),

@@ -16,9 +16,7 @@ use crate::service::{
 };
 
 use std::vec::Vec;
-use std::ops::DerefMut;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 macro_rules! new_in_memory_dao {
     ($name:ident, $entity_type:ident) => {
@@ -221,7 +219,7 @@ where
         Ok(results)
     }
 
-    pub fn get_one<Predicate>(&self, mut predicate: Predicate) -> DaoResult<EntityModelType, InMemoryDaoError>
+    pub fn get_one<Predicate>(&self, predicate: Predicate) -> DaoResult<EntityModelType, InMemoryDaoError>
     where
         Predicate: FnMut(&EntityModelType) -> bool {
 
@@ -348,11 +346,13 @@ impl IdentityVerifyRequestDao for InMemoryIdentityVerifyRequestDao {
         self.db.update(set_values, |e| e.employee_id == Some(employee_id))
     }
 
-    fn verify_request(&mut self, _transaction_context: &mut Self::TransactionContextType, id: i32) -> DaoResult<(), Self::ErrorType> {
+    fn verify_request(&mut self, _transaction_context: &mut Self::TransactionContextType, _id: i32) -> DaoResult<(), Self::ErrorType> {
+        // TODO
         Ok(())
     }
 
-    fn get_active_request_by_reference(&self, _transaction_context: &mut Self::TransactionContextType, reference: String) -> DaoResult<IdentityVerifyRequestModel, Self::ErrorType> {
+    fn get_active_request_by_reference(&self, _transaction_context: &mut Self::TransactionContextType, _reference: String) -> DaoResult<IdentityVerifyRequestModel, Self::ErrorType> {
+        // TODO
         Err(InMemoryDaoError::entity_not_found())
     }
 }
@@ -360,7 +360,8 @@ impl IdentityVerifyRequestDao for InMemoryIdentityVerifyRequestDao {
 // ========================================= Notify Request Dao =======================================
 
 impl Appliable for NotifyRequestModel {
-    fn apply(&mut self, other: &Self) {
+    fn apply(&mut self, _other: &Self) {
+        // TODO
     }
 }
 

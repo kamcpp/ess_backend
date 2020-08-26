@@ -1,5 +1,4 @@
 use crate::dao::{
-    DaoResult,
     TransactionContext,
     TransactionContextBuilder,
     EmployeeDao,
@@ -74,74 +73,74 @@ where
 
     pub fn add_employee(&mut self, employee_model: EmployeeModel) -> ServiceResult<(), ServiceError<DaoErrorType>> {
         let mut transaction_context = self.transaction_context_builder.build();
-        transaction_context.begin();
+        transaction_context.begin().ok();
         self.employee_dao.insert_into(&mut transaction_context, employee_model)
             .map(|_| {
-                transaction_context.commit();
+                transaction_context.commit().ok();
             })
             .map_err(|err| {
-                transaction_context.rollback();
+                transaction_context.rollback().ok();
                 err.into()
             })
     }
 
     pub fn update_employee(&mut self, employee_model: EmployeeModel) -> ServiceResult<(), ServiceError<DaoErrorType>> {
         let mut transaction_context = self.transaction_context_builder.build();
-        transaction_context.begin();
+        transaction_context.begin().ok();
         self.employee_dao.update(&mut transaction_context, employee_model)
             .map(|_| {
-                transaction_context.commit();
+                transaction_context.commit().ok();
             })
             .map_err(|err| {
-                transaction_context.rollback();
+                transaction_context.rollback().ok();
                 err.into()
             })
     }
 
     pub fn delete_employee(&mut self, employee_id: i32) -> ServiceResult<(), ServiceError<DaoErrorType>> {
         let mut transaction_context = self.transaction_context_builder.build();
-        transaction_context.begin();
+        transaction_context.begin().ok();
         self.employee_dao.delete(&mut transaction_context, employee_id)
             .map(|_| {
-                transaction_context.commit();
+                transaction_context.commit().ok();
             })
             .map_err(|err| {
-                transaction_context.rollback();
+                transaction_context.rollback().ok();
                 err.into()
             })
     }
 
     pub fn get_employee(&mut self, employee_id: i32) -> ServiceResult<EmployeeModel, ServiceError<DaoErrorType>> {
         let mut transaction_context = self.transaction_context_builder.build();
-        transaction_context.begin();
+        transaction_context.begin().ok();
         self.employee_dao.get_one(&mut transaction_context, employee_id)
             .map(|result| {
-                transaction_context.commit();
+                transaction_context.commit().ok();
                 result
             })
             .map_err(|err| {
-                transaction_context.rollback();
+                transaction_context.rollback().ok();
                 err.into()
             })
     }
 
     pub fn get_all_employees(&mut self) -> ServiceResult<Vec<EmployeeModel>, ServiceError<DaoErrorType>> {
         let mut transaction_context = self.transaction_context_builder.build();
-        transaction_context.begin();
+        transaction_context.begin().ok();
         self.employee_dao.get_all(&mut transaction_context)
             .map(|result| {
-                transaction_context.commit();
+                transaction_context.commit().ok();
                 result
             })
             .map_err(|err| {
-                transaction_context.rollback();
+                transaction_context.rollback().ok();
                 err.into()
             })
     }
 
     pub fn new_id_verify_req(&mut self, id_verify_req: NewIdentityVerifyRequestModel) -> ServiceResult<NewIdentityVerifyResponseModel, ServiceError<DaoErrorType>> {
         let mut transaction_context = self.transaction_context_builder.build();
-        transaction_context.begin();
+        transaction_context.begin().ok();
         let now = chrono::Utc::now();
         match self.employee_dao.get_by_username(&mut transaction_context, id_verify_req.username)
             .and_then(|employee| {
@@ -172,11 +171,11 @@ where
                 Ok(reference)
             }) {
                 Ok(reference) => {
-                    transaction_context.commit();
+                    transaction_context.commit().ok();
                     return Ok(NewIdentityVerifyResponseModel { reference, server_utc_dt: now.timestamp() });
                 },
                 Err(err) => {
-                    transaction_context.rollback();
+                    transaction_context.rollback().ok();
                     return Err(err.into());
                 },
             }
@@ -184,8 +183,7 @@ where
 
     pub fn check_id_verify_req(&mut self, check_id_verify_req: CheckIdentityVerifyRequestModel) -> ServiceResult<(), ServiceError<DaoErrorType>> {
         let mut transaction_context = self.transaction_context_builder.build();
-        transaction_context.begin();
-        let now = chrono::Utc::now();
+        transaction_context.begin().ok();
         match self.id_verify_req_dao.get_active_request_by_reference(&mut transaction_context, check_id_verify_req.clone().reference)
             .map_err(|err| err.into())
             .and_then(|id_verify_req | {
@@ -195,11 +193,11 @@ where
                 self.id_verify_req_dao.deactivate_all_requests(&mut transaction_context, id_verify_req.employee_id.unwrap()).map_err(|err| err.into())
             }) {
                 Ok(_) => {
-                    transaction_context.commit();
+                    transaction_context.commit().ok();
                     return Ok(());
                 },
                 Err(err) => {
-                    transaction_context.rollback();
+                    transaction_context.rollback().ok();
                     return Err(err);
                 },
             }
