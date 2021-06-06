@@ -1,9 +1,13 @@
 REPO_NAME = kamcpp
-PROJECT_NAME = manning-simurgh
+PROJECT_NAME = ess
 IMAGE_TAG = latest
 
 INIT_IMAGE_NAME = ${REPO_NAME}/${PROJECT_NAME}-init:${IMAGE_TAG}
 WEB_SERVICE_IMAGE_NAME = ${REPO_NAME}/${PROJECT_NAME}-web-service:${IMAGE_TAG}
+
+.PHONY: build
+build:
+	cargo build --locked
 
 .PHONY: build-images
 build-images: build-init-image build-web-service-image
