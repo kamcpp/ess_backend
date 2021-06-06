@@ -1,2 +1,2 @@
 [workspace]
-members = [ "web-service", "notifier" ]
+members = [ "web-service" ]
