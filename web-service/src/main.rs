@@ -4,9 +4,6 @@ use std::sync::{Arc, Mutex};
 use std::ops::Deref;
 use std::env;
 
-use rand::Rng;
-use rand::distributions::Alphanumeric;
-
 use tide::{Request, Response, Result};
 
 use common::schema;
@@ -20,6 +17,8 @@ use diesel::prelude::*;
 use diesel::pg::PgConnection;
 
 use r2d2_diesel::ConnectionManager;
+
+use google_authenticator::{GoogleAuthenticator, ErrorCorrectionLevel};
 
 #[derive(Debug, Clone)]
 struct IdentityVerificationError;
@@ -66,13 +65,6 @@ impl std::fmt::Display for VariantError {
     }
 }
 
-fn gen_rand_string(length: usize) -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(length)
-        .collect::<String>()
-}
-
 async fn handle_id_verify_req(mut req: Request<SharedSyncState>) -> Result<Response> {
     // Try to parse the request body containing thet model
     let model: IdentityVerificationRequestModel = match req.body_json().await {
@@ -87,37 +79,21 @@ async fn handle_id_verify_req(mut req: Request<SharedSyncState>) -> Result<Respo
     match conn.transaction::<_, _, _>(|| {
         let employees = employee.filter(username.eq(model.username)).load::<Employee>(conn.deref())?;
         if employees.len() == 0 {
-            return Err(Error::NotFound);
+            return Err(VariantError::DieselError(Error::NotFound));
         }
-        /*let target_employee = &employees[0];
-        let secret_value = gen_rand_string(8);
-        let reference_value = gen_rand_string(16);
-        update(id_verify_request.filter(schema::id_verify_request::dsl::employee_id.eq(target_employee.id))).set((
-            active.eq(false),
-        )).execute(conn.deref())?;
-        insert_into(id_verify_request).values((
-            reference.eq(reference_value.clone()),
-            secret.eq(secret_value.clone()),
-            active.eq(true),
-            schema::id_verify_request::dsl::create_utc_dt.eq(now.naive_utc()),
-            schema::id_verify_request::dsl::expire_utc_dt.eq((now + Duration::minutes(5)).naive_utc()),
-            schema::id_verify_request::dsl::employee_id.eq(target_employee.id),
-        )).execute(conn.deref())?;
-        insert_into(notify_request).values((
-            title.eq("Simurgh Identity Verification System"),
-            body.eq(format!("Your code: {}", secret_value)),
-            schema::notify_request::dsl::create_utc_dt.eq(now.naive_utc()),
-            schema::notify_request::dsl::expire_utc_dt.eq((now + Duration::minutes(15)).naive_utc()),
-            schema::notify_request::dsl::employee_id.eq(target_employee.id),
-        )).execute(conn.deref())?;
-        Ok(reference_value)*/
-        Ok("ok")
+        let target_employee = &employees[0];
+        let ga = GoogleAuthenticator::new();
+        if ga.verify_code(&target_employee.totp_secret, &model.totp_code, 3, 0) {
+            return Ok(())
+        }
+        Err(VariantError::IdentityVerificationError)
     }) {
-        Ok(reference_value) => {
+        Ok(_) => {
             return Ok(Response::builder(200).body("").build())
         },
         Err(err) => match err {
-            diesel::result::Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
+            VariantError::IdentityVerificationError => return Ok(Response::builder(403).body("identity verification failed".to_string()).build()),
+            VariantError::DieselError(Error::NotFound) => return Ok(Response::builder(404).body("not found".to_string()).build()),
             error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
         },
     }
@@ -143,20 +119,30 @@ async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Respon
     // Get a conneciton from the pool
     let conn = state.conn_pool.get().expect("cannot get a connection from pool!");
     use schema::employee::dsl::*;
-    // Generate secre key
-    let secret_value = gen_rand_string(64);
+    // Generate QR secret URL
+    let ga = GoogleAuthenticator::new();
+    let secret = ga.create_secret(32);
+    let qr_secret_url = ga.qr_code_url(
+        &secret,
+        "Encryptizer Inc.",
+        "ESS Secret",
+        400,
+        400,
+        ErrorCorrectionLevel::Medium,
+    );
+    // let secret_value = gen_rand_string(64);
     // Create the values for the new employee
     let values = (
         first_name.eq(employee_model.first_name.unwrap()),
         second_name.eq(employee_model.second_name.unwrap()),
         username.eq(employee_model.username.unwrap()),
-        secret_key.eq(secret_value.clone()),
+        totp_secret.eq(&secret),
     );
     // Try to insert the new employee in a transaction
     match conn.transaction::<_, Error, _>(|| {
         insert_into(employee).values(values).execute(conn.deref())
     }) {
-        Ok(_) => return Ok(Response::builder(200).body(secret_value).build()),
+        Ok(_) => return Ok(Response::builder(200).body(qr_secret_url).build()),
         Err(err) => match err {
             Error::DatabaseError(kind, info) => match kind {
                 DatabaseErrorKind::UniqueViolation => return Ok(Response::builder(409).body(format!("{:?}", info)).build()),

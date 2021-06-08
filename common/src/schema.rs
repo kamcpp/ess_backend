@@ -3,6 +3,6 @@ table! {
         first_name -> Varchar,
         second_name -> Varchar,
         username -> Varchar,
-        secret_key -> Varchar,
+        totp_secret -> Varchar,
     }
 }

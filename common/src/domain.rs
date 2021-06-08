@@ -7,5 +7,5 @@ pub struct Employee {
     pub first_name: String,
     pub second_name: String,
     pub username: String,
-    pub secretKey: String,
+    pub totp_secret: String,
 }

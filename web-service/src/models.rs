@@ -12,6 +12,6 @@ pub struct EmployeeModel {
 #[derive(Debug, Deserialize)]
 pub struct IdentityVerificationRequestModel {
     pub username: String,
-    #[serde(rename = "totp")] // Time-based One-Time Password
-    pub totp: String,
+    #[serde(rename = "totpCode")] // Time-based One-Time Password
+    pub totp_code: String,
 }
