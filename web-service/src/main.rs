@@ -11,14 +11,9 @@ use common::domain::{Employee};
 
 use models::{EmployeeModel, IdentityVerificationRequestModel};
 
-use diesel::{insert_into, update, delete};
-use diesel::result::{Error, DatabaseErrorKind};
-use diesel::prelude::*;
-use diesel::pg::PgConnection;
-
-use r2d2_diesel::ConnectionManager;
-
 use google_authenticator::{GoogleAuthenticator, ErrorCorrectionLevel};
+
+>> ADD REQUIRED DEPENDENCIES HERE <<
 
 #[derive(Debug, Clone)]
 struct IdentityVerificationError;
@@ -34,12 +29,7 @@ impl ServiceState {
         let addr = env::var("POSTGRES_ADDR").unwrap_or("localhost".to_string());
         let db = env::var("POSTGRES_DB").unwrap_or("ess_db".to_string());
 
-        let database_url = format!("postgres://{}:{}@{}/{}", user, password, addr, db);
-        let manager = ConnectionManager::<PgConnection>::new(database_url);
-        println!("Conneciton pool is created.");
-        Self {
-            conn_pool: r2d2::Pool::builder().build(manager).expect("Failed to create PostgreSQL connection pool!"),
-        }
+        >> FILL HERE <<
     }
 }
 
@@ -66,216 +56,27 @@ impl std::fmt::Display for VariantError {
 }
 
 async fn handle_id_verify_req(mut req: Request<SharedSyncState>) -> Result<Response> {
-    // Try to parse the request body containing thet model
-    let model: IdentityVerificationRequestModel = match req.body_json().await {
-        Ok(parsed_model) => parsed_model,
-        Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
-    };
-    // This locks the 'state' and unlocks it when returning from function
-    let state = req.state().lock().unwrap();
-    // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("cannot get a connection from pool!");
-    use schema::employee::dsl::*;
-    match conn.transaction::<_, _, _>(|| {
-        let employees = employee.filter(username.eq(model.username)).load::<Employee>(conn.deref())?;
-        if employees.len() == 0 {
-            return Err(VariantError::DieselError(Error::NotFound));
-        }
-        let target_employee = &employees[0];
-        let ga = GoogleAuthenticator::new();
-        if ga.verify_code(&target_employee.totp_secret, &model.totp_code, 3, 0) {
-            return Ok(())
-        }
-        Err(VariantError::IdentityVerificationError)
-    }) {
-        Ok(_) => {
-            return Ok(Response::builder(200).body("").build())
-        },
-        Err(err) => match err {
-            VariantError::IdentityVerificationError => return Ok(Response::builder(403).body("identity verification failed".to_string()).build()),
-            VariantError::DieselError(Error::NotFound) => return Ok(Response::builder(404).body("not found".to_string()).build()),
-            error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
-        },
-    }
+    >> FILL HERE <<
 }
 
 async fn handle_add_employee(mut req: Request<SharedSyncState>) -> Result<Response> {
-    // Try to parse the request body containing the employee model
-    let employee_model: EmployeeModel = match req.body_json().await {
-        Ok(parsed_employee_model) => parsed_employee_model,
-        Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
-    };
-    if employee_model.first_name.is_none() {
-        return Ok(Response::builder(400).body("'first_name' is mandatory").build());
-    }
-    if employee_model.second_name.is_none() {
-        return Ok(Response::builder(400).body("'second_name' is mandatory").build());
-    }
-    if employee_model.username.is_none() {
-        return Ok(Response::builder(400).body("'username' is mandatory").build());
-    }
-    // This locks the 'state' and unlocks it when returning from function
-    let state = req.state().lock().unwrap();
-    // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("cannot get a connection from pool!");
-    use schema::employee::dsl::*;
-    // Generate QR secret URL
-    let ga = GoogleAuthenticator::new();
-    let secret = ga.create_secret(32);
-    let qr_secret_url = ga.qr_code_url(
-        &secret,
-        "Encryptizer Inc.",
-        "ESS Secret",
-        400,
-        400,
-        ErrorCorrectionLevel::Medium,
-    );
-    // let secret_value = gen_rand_string(64);
-    // Create the values for the new employee
-    let values = (
-        first_name.eq(employee_model.first_name.unwrap()),
-        second_name.eq(employee_model.second_name.unwrap()),
-        username.eq(employee_model.username.unwrap()),
-        totp_secret.eq(&secret),
-    );
-    // Try to insert the new employee in a transaction
-    match conn.transaction::<_, Error, _>(|| {
-        insert_into(employee).values(values).execute(conn.deref())
-    }) {
-        Ok(_) => return Ok(Response::builder(200).body(qr_secret_url).build()),
-        Err(err) => match err {
-            Error::DatabaseError(kind, info) => match kind {
-                DatabaseErrorKind::UniqueViolation => return Ok(Response::builder(409).body(format!("{:?}", info)).build()),
-                _ => return Ok(Response::builder(500).body(format!("{:?}", info)).build()),
-            },
-            error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
-        },
-    }
+    >> FILL HERE <<
 }
 
 async fn handle_update_employee(mut req: Request<SharedSyncState>) -> Result<Response> {
-    // Try to parse the request body containing the employee model
-    let employee_model: EmployeeModel = match req.body_json().await {
-        Ok(parsed_employee_model) => parsed_employee_model,
-        Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
-    };
-    // Read 'employee username' from the path
-    let employee_username: String = match req.param("username") {
-        Ok(value) => value.to_string(),
-        Err(err) => return Ok(Response::builder(400).body(format!("'username' is mandatory and must be provided as part of path: {}", err)).build()),
-    };
-    use schema::employee::dsl::*;
-    // This locks the 'state' and unlocks it when returning from function
-    let state = req.state().lock().unwrap();
-    // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("cannot get a connection from pool!");
-    // Try to update the employee
-    match conn.transaction::<_, Error, _>(|| {
-        if employee_model.first_name.is_some() {
-            update(employee.filter(username.eq(employee_username.clone()))).set(first_name.eq(employee_model.first_name.unwrap())).execute(conn.deref())?;
-        }
-        if employee_model.second_name.is_some() {
-            update(employee.filter(username.eq(employee_username.clone()))).set(second_name.eq(employee_model.second_name.unwrap())).execute(conn.deref())?;
-        }
-        Ok(())
-    }) {
-        Ok(_) => return Ok(Response::builder(200).body("".to_string()).build()),
-        Err(err) => match err {
-            Error::DatabaseError(kind, info) => match kind {
-                DatabaseErrorKind::UniqueViolation => return Ok(Response::builder(409).body(format!("{:?}", info)).build()),
-                _ => return Ok(Response::builder(500).body(format!("{:?}", info)).build()),
-            },
-            Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
-            error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
-        },
-    }
+    >> FILL HERE <<
 }
 
 async fn handle_delete_employee(req: Request<SharedSyncState>) -> Result<Response> {
-    // Read 'employee username' from the path
-    let employee_username: String = match req.param("username") {
-        Ok(value) => value.to_string(),
-        Err(err) => return Ok(Response::builder(400).body(format!("'username' is mandatory and must be provided as part of path: {}", err)).build()),
-    };
-    use schema::employee::dsl::*;
-    // This locks the 'state' and unlocks it when returning from function
-    let state = req.state().lock().unwrap();
-    // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("cannot get a connection from pool!");
-    // Try to delete the employee
-    match conn.transaction::<_, Error, _>(|| {
-        delete(employee.filter(username.eq(employee_username))).execute(conn.deref())
-    }) {
-        Ok(_) => return Ok(Response::builder(200).body("".to_string()).build()),
-        Err(err) => match err {
-            Error::NotFound => return Ok(Response::builder(404).body("not found".to_string()).build()),
-            error => return Ok(Response::builder(500).body(format!("{}", error)).build()),
-        },
-    }
+    >> FILL HERE <<
 }
 
 async fn handle_get_all_employees(req: Request<SharedSyncState>) -> Result<Response> {
-    // This locks the 'state' and unlocks it when returning from function
-    let state = req.state().lock().unwrap();
-    // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("cannot get a connection from pool!");
-    use schema::employee::dsl::*;
-    // Read all employees
-    match conn.transaction::<_, Error, _>(|| {
-        employee.load::<Employee>(conn.deref())
-    }) {
-        Ok(employees) => {
-            let to_return: Vec<EmployeeModel> = employees.iter().map(|e|
-                EmployeeModel {
-                    first_name: Some(e.first_name.clone()),
-                    second_name: Some(e.second_name.clone()),
-                    username: Some(e.username.clone()),
-            }).collect();
-            match serde_json::to_string(&to_return) {
-                Ok(body_str) => return Ok(Response::builder(200).body(body_str).build()),
-                Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
-            };
-        },
-        Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
-    }
+    >> FILL HERE <<
 }
 
 async fn handle_get_employee(req: Request<SharedSyncState>) -> Result<Response> {
-    // Read 'employee username' from the path
-    let employee_username: String = match req.param("username") {
-        Ok(value) => value.to_string(),
-        Err(err) => return Ok(Response::builder(400).body(format!("'username' is mandatory and must be provided as part of path: {}", err)).build()),
-    };
-    // This locks the 'state' and unlocks it when returning from function
-    let state = req.state().lock().unwrap();
-    // Get a conneciton from the pool
-    let conn = state.conn_pool.get().expect("cannot get a connection from pool!");
-    use schema::employee::dsl::*;
-    // Read just one employee
-    match conn.transaction::<_, Error, _>(|| {
-        employee.filter(username.eq(employee_username)).load::<Employee>(conn.deref())
-    }) {
-        Ok(employees) => {
-            let to_return: Vec<EmployeeModel> = employees.iter().map(|e|
-                EmployeeModel {
-                    first_name: Some(e.first_name.clone()),
-                    second_name: Some(e.second_name.clone()),
-                    username: Some(e.username.clone()),
-            }).collect();
-            if to_return.len() == 0 {
-                return Ok(Response::builder(404).body("no employee found with this username!".to_string()).build());
-            }
-            // The following condition MUST NEVER happen!
-            if to_return.len() > 1 {
-                return Ok(Response::builder(500).body("more than one employee have been found with the same username!".to_string()).build());
-            }
-            match serde_json::to_string(&to_return) {
-                Ok(body_str) => return Ok(Response::builder(200).body(body_str).build()),
-                Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
-            };
-        },
-        Err(err) => return Ok(Response::builder(500).body(format!("{}", err)).build()),
-    }
+    >> FILL HERE <<
 }
 
 #[async_std::main]
