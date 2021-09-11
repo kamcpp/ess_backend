@@ -4,7 +4,11 @@ use std::sync::{Arc, Mutex};
 use std::ops::Deref;
 use std::env;
 
+use async_rustls::server::TlsStream;
+use async_std::net::TcpStream;
+
 use tide::{Request, Response, Result};
+use tide_rustls::{CustomTlsAcceptor, TlsListener};
 
 use common::schema;
 use common::domain::{Employee};
@@ -29,6 +33,9 @@ struct ServiceState {
 
 impl ServiceState {
     fn new() -> Self {
+
+        std::thread::sleep(std::time::Duration::from_millis(10000));
+
         let user = env::var("POSTGRES_USER").unwrap_or("ess_da".to_string());
         let password = env::var("POSTGRES_PASSWORD").unwrap_or("not-set".to_string());
         let addr = env::var("POSTGRES_ADDR").unwrap_or("localhost".to_string());
@@ -278,17 +285,47 @@ async fn handle_get_employee(req: Request<SharedSyncState>) -> Result<Response> 
     }
 }
 
+struct AdminTlsAcceptor(async_rustls::TlsAcceptor);
+
+#[tide::utils::async_trait]
+impl CustomTlsAcceptor for AdminTlsAcceptor {
+    async fn accept(&self, stream: TcpStream) -> std::io::Result<Option<TlsStream<TcpStream>>> {
+        self.0.accept(stream).await.map(Some)
+    }
+}
+
 #[async_std::main]
 async fn main() -> std::result::Result<(), std::io::Error> {
+
     let state = Arc::new(Mutex::new(ServiceState::new()));
+    {
+        let state = state.clone();
+        let mut pam_app = tide::with_state(state);
+        pam_app.at("/api/pam/verify").post(handle_id_verify_req);
+        pam_app.listen(
+            TlsListener::build()
+                .addrs("0.0.0.0:9443")
+                .cert(env::var("SERVER_CERT_PATH").unwrap())
+                .key(env::var("SERVER_KEY_PATH").unwrap())
+                .finish().unwrap()
+        ).await.expect("Could not start pam web server!");
+    }
+    {
+        let mut admin_app = tide::with_state(state);
+        admin_app.at("/api/admin/employee").post(handle_add_employee);
+        admin_app.at("/api/admin/employee/:username").put(handle_update_employee);
+        admin_app.at("/api/admin/employee/:username").delete(handle_delete_employee);
+        admin_app.at("/api/admin/employee/all").get(handle_get_all_employees);
+        admin_app.at("/api/admin/employee/:username").get(handle_get_employee);
+        admin_app.listen(
+            TlsListener::build()
+                .addrs("0.0.0.0:9444")
+                .cert(env::var("ADMIN_CERT_PATH").unwrap())
+                .key(env::var("ADMIN_KEY_PATH").unwrap())
+                .finish().unwrap()
+        ).await.expect("Could not start admin web server!");
+    }
     println!("ESS web service is running now ...");
-    let mut app = tide::with_state(state);
-    app.at("/api/admin/employee").post(handle_add_employee);
-    app.at("/api/admin/employee/:username").put(handle_update_employee);
-    app.at("/api/admin/employee/:username").delete(handle_delete_employee);
-    app.at("/api/admin/employee/all").get(handle_get_all_employees);
-    app.at("/api/admin/employee/:username").get(handle_get_employee);
-    app.at("/api/pam/verify").post(handle_id_verify_req);
-    app.listen("0.0.0.0:9876").await.expect("Could not start web server!");
+
     Ok(())
 }

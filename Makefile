@@ -23,6 +23,7 @@ build-init-image:
 
 .PHONY: build-web-service-image
 build-web-service-image:
+	# we need to this copy in order to keep the 'target' directory ignored when doing the docker build
 	mkdir -p .tmp
 	cp target/release/web-service .tmp
 	docker build -f Dockerfile.web-service -t ${WEB_SERVICE_IMAGE_TAG} .

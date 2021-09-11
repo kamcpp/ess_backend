@@ -3,6 +3,7 @@ FROM ubuntu:18.04
 RUN apt update
 RUN apt install -y libssl-dev ca-certificates libpq-dev
 
-COPY .tmp/web-service /usr/bin/
+COPY ./cert /cert
+COPY ./.tmp/web-service /usr/bin/
 
 ENTRYPOINT [ "web-service" ]
