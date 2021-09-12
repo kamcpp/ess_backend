@@ -22,7 +22,7 @@ build-init-image:
 	docker build -f Dockerfile.init -t ${INIT_IMAGE_TAG} .
 
 .PHONY: build-web-service-image
-build-web-service-image: cert/ess.cryptizer.com.key cert/ess.cryptizer.com.crt
+build-web-service-image: cert/ess.encryptizer.com.key cert/ess.encryptizer.com.crt
 	# we need to this copy in order to keep the 'target' directory ignored when doing the docker build
 	mkdir -p .tmp
 	cp target/release/web-service .tmp
