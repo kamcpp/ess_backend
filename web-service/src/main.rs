@@ -1,16 +1,16 @@
 mod models;
 
+use std::fs::File;
 use std::sync::{Arc, Mutex};
 use std::ops::Deref;
 use std::env;
 
-use async_rustls::server::TlsStream;
-
-use async_std::net::TcpStream;
 use async_std::task;
 
 use tide::{Request, Response, Result};
-use tide_rustls::{CustomTlsAcceptor, TlsListener};
+
+use tide_rustls::rustls;
+use tide_rustls::TlsListener;
 
 use common::schema;
 use common::domain::{Employee};
@@ -287,46 +287,68 @@ async fn handle_get_employee(req: Request<SharedSyncState>) -> Result<Response> 
     }
 }
 
-struct AdminTlsAcceptor(async_rustls::TlsAcceptor);
-
-#[tide::utils::async_trait]
-impl CustomTlsAcceptor for AdminTlsAcceptor {
-    async fn accept(&self, stream: TcpStream) -> std::io::Result<Option<TlsStream<TcpStream>>> {
-        self.0.accept(stream).await.map(Some)
-    }
-}
-
 #[async_std::main]
 async fn main() -> std::result::Result<(), std::io::Error> {
 
     println!("starting ESS web services ...");
 
+    // read server's cert and key
+    // look here to get more insight on how all these work: https://github.com/http-rs/tide-rustls/blob/main/src/tls_listener.rs
+    let server_cert_path = env::var("SERVER_CERT_PATH").unwrap();
+    let server_key_path = env::var("SERVER_KEY_PATH").unwrap();
+    let server_cert_chain = rustls::internal::pemfile::certs(&mut std::io::BufReader::new(File::open(server_cert_path)?)).unwrap();
+    let mut server_keys = rustls::internal::pemfile::rsa_private_keys(&mut std::io::BufReader::new(File::open(server_key_path)?)).unwrap();
+
     let state = Arc::new(Mutex::new(ServiceState::new()));
-    let pam_state = state.clone();
-    task::spawn(async move {
-        println!("starting PAM services ...");
-        let mut pam_app = tide::with_state(pam_state);
-        pam_app.at("/api/pam/verify").post(handle_id_verify_req);
-        pam_app.listen(
+
+    {
+        let server_cert_chain = server_cert_chain.clone();
+        let mut server_keys = server_keys.clone();
+        let pam_state = state.clone();
+        task::spawn(async move {
+            println!("starting PAM services ...");
+            let mut pam_app = tide::with_state(pam_state);
+            pam_app.at("/api/pam/verify").post(handle_id_verify_req);
+
+            // create pam's server config
+            let mut pam_server_config = rustls::ServerConfig::new(rustls::NoClientAuth::new());
+            pam_server_config.set_single_cert(server_cert_chain, server_keys.remove(0)).unwrap();
+
+            pam_app.listen(
+                TlsListener::build()
+                    .addrs("0.0.0.0:443")
+                    .config(pam_server_config)
+            ).await.expect("Could not start pam web server!");
+        });
+    }
+    {
+        println!("starting admin services ...");
+        let mut admin_app = tide::with_state(state);
+        admin_app.at("/api/admin/employee").post(handle_add_employee);
+        admin_app.at("/api/admin/employee/:username").put(handle_update_employee);
+        admin_app.at("/api/admin/employee/:username").delete(handle_delete_employee);
+        admin_app.at("/api/admin/employee/all").get(handle_get_all_employees);
+        admin_app.at("/api/admin/employee/:username").get(handle_get_employee);
+
+        // create the root cert store
+        let mut root_cert_store = rustls::RootCertStore::empty();
+        let root_certs_path = env::var("ROOT_CERTS_PATH").unwrap();
+        let mut root_certs_file = std::io::BufReader::new(File::open(root_certs_path).unwrap());
+        let root_certs = rustls::internal::pemfile::certs(&mut root_certs_file).unwrap();
+        for root_cert in root_certs {
+            root_cert_store.add(&root_cert).unwrap();
+        }
+
+        // create admin's server config
+        let mut admin_server_config = rustls::ServerConfig::new(rustls::AllowAnyAuthenticatedClient::new(root_cert_store));
+        admin_server_config.set_single_cert(server_cert_chain, server_keys.remove(0)).unwrap();
+
+        admin_app.listen(
             TlsListener::build()
-                .addrs("0.0.0.0:443")
-                .cert(env::var("SERVER_CERT_PATH").unwrap())
-                .key(env::var("SERVER_KEY_PATH").unwrap())
-        ).await.expect("Could not start pam web server!");
-    });
-    println!("starting admin services ...");
-    let mut admin_app = tide::with_state(state);
-    admin_app.at("/api/admin/employee").post(handle_add_employee);
-    admin_app.at("/api/admin/employee/:username").put(handle_update_employee);
-    admin_app.at("/api/admin/employee/:username").delete(handle_delete_employee);
-    admin_app.at("/api/admin/employee/all").get(handle_get_all_employees);
-    admin_app.at("/api/admin/employee/:username").get(handle_get_employee);
-    admin_app.listen(
-        TlsListener::build()
-            .addrs("0.0.0.0:444")
-            .cert(env::var("ADMIN_CERT_PATH").unwrap())
-            .key(env::var("ADMIN_KEY_PATH").unwrap())
-    ).await.expect("Could not start admin web server!");
+                .addrs("0.0.0.0:444")
+                .config(admin_server_config)
+        ).await.expect("Could not start admin web server!");
+    }
 
     Ok(())
 }
