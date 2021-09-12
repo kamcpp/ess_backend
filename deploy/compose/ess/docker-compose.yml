@@ -1,0 +1,34 @@
+version: '3'
+services:
+  pgsql:
+    ports:
+      - "5432:5432"
+    image: "postgres:12"
+    env_file:
+      - ess.env
+    volumes:
+      - "db-data:/var/lib/postgresql/data/"
+  init:
+    image: "kamcpp/ess-init"
+    entrypoint: /bin/sh
+    command: -c "/work/init.sh"
+    env_file:
+      - ess.env
+    depends_on:
+      - pgsql
+    links:
+      - pgsql
+  services:
+    ports:
+      - "30443:443"
+      - "30444:444"
+    image: "kamcpp/ess-web-service"
+    env_file:
+      - ess.env
+    depends_on:
+      - init
+    links:
+      - pgsql
+
+volumes:
+  db-data:
