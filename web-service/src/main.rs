@@ -293,7 +293,7 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     println!("starting ESS web services ...");
 
     // read server's cert and key
-    // look here to get more insight on how all these work: https://github.com/http-rs/tide-rustls/blob/main/src/tls_listener.rs
+    // read this link to get more insight on how all this works: https://github.com/http-rs/tide-rustls/blob/main/src/tls_listener.rs
     let server_cert_path = env::var("SERVER_CERT_PATH").unwrap();
     let server_key_path = env::var("SERVER_KEY_PATH").unwrap();
     let server_cert_chain = rustls::internal::pemfile::certs(&mut std::io::BufReader::new(File::open(server_cert_path)?)).unwrap();

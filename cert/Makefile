@@ -40,13 +40,3 @@ gen-server-csr: gen-server-keypair
 .PHONY: gen-server-cert
 gen-server-cert: gen-server-csr
 	openssl x509 -req -in ess.encryptizer.com.csr -CA root-ca.crt -CAkey root-ca.key -CAcreateserial -out ess.encryptizer.com.crt -days 500 -sha256
-
-.PHONY: deploy-secrets
-deploy-secrets:
-	minikube kubectl -- create secret tls ess-tls --cert ./ess.encryptizer.com.crt --key ./ess.encryptizer.com.key
-	minikube kubectl -- create secret generic ess-ca --from-file=ca.crt=./root-ca.crt
-
-.PHONY: delete-secrets
-delete-secrets:
-	minikube kubectl -- delete secret ess-tls
-	minikube kubectl -- delete secret ess-ca
