@@ -25,6 +25,8 @@ services:
     image: "kamcpp/ess-web-service"
     env_file:
       - ess.env
+    volumes:
+      - ../../../cert:/cert
     depends_on:
       - init
     links:

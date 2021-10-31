@@ -39,7 +39,7 @@ impl ServiceState {
         std::thread::sleep(std::time::Duration::from_millis(10000));
 
         let user = env::var("POSTGRES_USER").unwrap_or("ess_da".to_string());
-        let password = env::var("POSTGRES_PASSWORD").unwrap_or("not-set".to_string());
+        let password = env::var("POSTGRES_PASSWORD").unwrap_or("ess_password".to_string());
         let addr = env::var("POSTGRES_ADDR").unwrap_or("localhost".to_string());
         let db = env::var("POSTGRES_DB").unwrap_or("ess_db".to_string());
 
