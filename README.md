@@ -14,7 +14,7 @@ $ make build-web-service
 ## Build the web service's docker image
 ```shell
 $ cd cert
-$ make all
+$ make
 $ cd ..
 $ make build-web-service-image
 ```
