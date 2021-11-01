@@ -3,7 +3,7 @@ all: gen-root-ca-cert gen-admin-pfx gen-server-cert
 
 .PHONY: clean
 clean:
-	 rm -rf *.crt *.csr *.key *.srl *.key *.pfx
+	 rm -rf *.crt *.csr *.key *.srl *.key *.pfx *.conf
 
 .PHONY: gen-root-ca-keypair
 gen-root-ca-keypair:
@@ -11,7 +11,7 @@ gen-root-ca-keypair:
 
 .PHONY: gen-root-ca-cert
 gen-root-ca-cert: gen-root-ca-keypair
-	openssl req -x509 -new -nodes -key root-ca.key -subj "/C=US/ST=FL/O=Encryptizer, Inc./CN=encryptizer.com"-sha256 -days 1024 -out root-ca.crt
+	openssl req -x509 -new -nodes -key root-ca.key -subj "/C=US/ST=FL/O=Encryptizer, Inc./CN=encryptizer.com" -sha256 -days 1024 -out root-ca.crt
 
 .PHONY: gen-admin-keypair
 gen-admin-keypair:
@@ -23,7 +23,8 @@ gen-admin-csr: gen-admin-keypair
 
 .PHONY: gen-admin-cert
 gen-admin-cert: gen-admin-csr
-	openssl x509 -req -in admin.ess.encryptizer.com.csr -CA root-ca.crt -CAkey root-ca.key -CAcreateserial -out admin.ess.encryptizer.com.crt -days 500 -sha256
+	echo "subjectAltName=DNS:admin.ess.encryptizer.com" > exts.conf
+	openssl x509 -req -extfile exts.conf -in admin.ess.encryptizer.com.csr -CA root-ca.crt -CAkey root-ca.key -CAcreateserial -out admin.ess.encryptizer.com.crt -days 500 -sha256
 
 .PHONY: gen-admin-pfx
 gen-admin-pfx: gen-admin-cert

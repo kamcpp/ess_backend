@@ -9,4 +9,6 @@ COPY ./cert/ess.encryptizer.com.key /cert
 COPY ./cert/ess.encryptizer.com.crt /cert
 COPY ./.tmp/web-service /usr/bin/
 
+ENV RUST_LOG DEBUG
+
 ENTRYPOINT [ "web-service" ]

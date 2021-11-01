@@ -5,6 +5,8 @@ use std::sync::{Arc, Mutex};
 use std::ops::Deref;
 use std::env;
 
+use env_logger;
+
 use async_std::task;
 
 use tide::{Request, Response, Result};
@@ -36,7 +38,7 @@ struct ServiceState {
 impl ServiceState {
     fn new() -> Self {
 
-        std::thread::sleep(std::time::Duration::from_millis(10000));
+        // std::thread::sleep(std::time::Duration::from_millis(10000));
 
         let user = env::var("POSTGRES_USER").unwrap_or("ess_da".to_string());
         let password = env::var("POSTGRES_PASSWORD").unwrap_or("ess_password".to_string());
@@ -292,6 +294,8 @@ async fn main() -> std::result::Result<(), std::io::Error> {
 
     println!("starting ESS web services ...");
 
+    env_logger::init();
+
     // read server's cert and key
     // read this link to get more insight on how all this works: https://github.com/http-rs/tide-rustls/blob/main/src/tls_listener.rs
     let server_cert_path = env::var("SERVER_CERT_PATH").unwrap();
@@ -316,7 +320,7 @@ async fn main() -> std::result::Result<(), std::io::Error> {
 
             pam_app.listen(
                 TlsListener::build()
-                    .addrs("0.0.0.0:443")
+                    .addrs("0.0.0.0:30443")
                     .config(pam_server_config)
             ).await.expect("Could not start pam web server!");
         });
@@ -330,22 +334,22 @@ async fn main() -> std::result::Result<(), std::io::Error> {
         admin_app.at("/api/admin/employee/all").get(handle_get_all_employees);
         admin_app.at("/api/admin/employee/:username").get(handle_get_employee);
 
-        // create the root cert store
-        let mut root_cert_store = rustls::RootCertStore::empty();
+        // read root cert file
         let root_certs_path = env::var("ROOT_CERTS_PATH").unwrap();
         let mut root_certs_file = std::io::BufReader::new(File::open(root_certs_path).unwrap());
-        let root_certs = rustls::internal::pemfile::certs(&mut root_certs_file).unwrap();
-        for root_cert in root_certs {
-            root_cert_store.add(&root_cert).unwrap();
-        }
+
+        // create the root cert store
+        let mut root_cert_store = rustls::RootCertStore::empty();
+        root_cert_store.add_pem_file(&mut root_certs_file).unwrap();
 
         // create admin's server config
-        let mut admin_server_config = rustls::ServerConfig::new(rustls::AllowAnyAuthenticatedClient::new(root_cert_store));
+        let verifier = rustls::AllowAnyAuthenticatedClient::new(root_cert_store);
+        let mut admin_server_config = rustls::ServerConfig::with_ciphersuites(verifier, &rustls::ALL_CIPHERSUITES);
         admin_server_config.set_single_cert(server_cert_chain, server_keys.remove(0)).unwrap();
 
         admin_app.listen(
             TlsListener::build()
-                .addrs("0.0.0.0:444")
+                .addrs("0.0.0.0:30444")
                 .config(admin_server_config)
         ).await.expect("Could not start admin web server!");
     }
