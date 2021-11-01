@@ -18,19 +18,19 @@ services:
       - pgsql
     links:
       - pgsql
-        #  services:
-        #    ports:
-        #      - "30443:443"
-        #      - "30444:444"
-        #    image: "kamcpp/ess-web-service"
-        #    env_file:
-        #      - ess.env
-        #    volumes:
-        #      - ../../../cert:/cert
-        #    depends_on:
-        #      - init
-        #    links:
-        #      - pgsql
+  services:
+    ports:
+      - "30443:443"
+      - "30444:444"
+    image: "kamcpp/ess-web-service"
+    env_file:
+      - ess.env
+    volumes:
+      - ../../../cert:/cert
+    depends_on:
+      - init
+    links:
+      - pgsql
 
 volumes:
   db-data:

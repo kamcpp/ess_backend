@@ -38,7 +38,7 @@ struct ServiceState {
 impl ServiceState {
     fn new() -> Self {
 
-        // std::thread::sleep(std::time::Duration::from_millis(10000));
+        std::thread::sleep(std::time::Duration::from_millis(10000));
 
         let user = env::var("POSTGRES_USER").unwrap_or("ess_da".to_string());
         let password = env::var("POSTGRES_PASSWORD").unwrap_or("ess_password".to_string());
@@ -320,7 +320,7 @@ async fn main() -> std::result::Result<(), std::io::Error> {
 
             pam_app.listen(
                 TlsListener::build()
-                    .addrs("0.0.0.0:30443")
+                    .addrs("0.0.0.0:443")
                     .config(pam_server_config)
             ).await.expect("Could not start pam web server!");
         });
@@ -349,7 +349,7 @@ async fn main() -> std::result::Result<(), std::io::Error> {
 
         admin_app.listen(
             TlsListener::build()
-                .addrs("0.0.0.0:30444")
+                .addrs("0.0.0.0:444")
                 .config(admin_server_config)
         ).await.expect("Could not start admin web server!");
     }
